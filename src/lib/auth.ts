@@ -1,11 +1,9 @@
 import "server-only";
+import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { promisify } from "node:util";
 import { cookies } from "next/headers";
 import { one, q } from "@/lib/db";
 import { HttpError } from "@/lib/errors";
-
-const scrypt = promisify(crypto.scrypt) as (pw: string, salt: Buffer, len: number, opt: crypto.ScryptOptions) => Promise<Buffer>;
 
 export const SESSION_COOKIE = "koperasi_sesi";
 const HARI = 24 * 60 * 60;
@@ -16,20 +14,16 @@ export const KUNCI_MENIT = 15;
 export type Role = "owner" | "admin" | "petugas" | "anggota";
 export type SessionUser = { id: number; kode: string | null; nama: string; email: string; role: Role; wilayah_id: number | null; wilayah: string | null };
 
-// ---------- password (format: scrypt$N$r$p$salt$hash, sama dengan scripts/db.mjs) ----------
-export async function hashPassword(pw: string) {
-  const salt = crypto.randomBytes(16);
-  const hash = await scrypt(pw.normalize("NFKC"), salt, 64, { N: 16384, r: 8, p: 1 });
-  return `scrypt$16384$8$1$${salt.toString("base64url")}$${hash.toString("base64url")}`;
-}
+// ---------- password: bcrypt (hash `$2a$12$…`, garam ada di dalam hash; sama dengan scripts/db.mjs) ----------
+export const BCRYPT_COST = 12;
+/** bcrypt hanya memakai 72 byte pertama password, jadi batas itu juga dipakai validasi input. */
+export const PASSWORD_MAKS_BYTE = 72;
+
+export const hashPassword = (pw: string) => bcrypt.hash(pw.normalize("NFKC"), BCRYPT_COST);
 
 export async function verifyPassword(pw: string, stored: string | null): Promise<boolean> {
-  if (!stored) return false;
-  const [alg, N, r, p, salt, hash] = stored.split("$");
-  if (alg !== "scrypt" || !salt || !hash) return false;
-  const expected = Buffer.from(hash, "base64url");
-  const actual = await scrypt(pw.normalize("NFKC"), Buffer.from(salt, "base64url"), expected.length, { N: Number(N), r: Number(r), p: Number(p) });
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  if (!stored || !/^\$2[aby]\$/.test(stored)) return false;
+  return bcrypt.compare(pw.normalize("NFKC"), stored);
 }
 
 /** Hash tiruan agar waktu respons sama ketika email tidak terdaftar (mencegah tebak-tebakan email). */

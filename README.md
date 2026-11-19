@@ -12,10 +12,11 @@ npm run dev                     # http://localhost:3100  (port 3000 dipakai apli
 ```
 
 `npm run db:seed` mengosongkan lalu mengisi ulang data contoh (tanggal jatuh tempo dibuat relatif terhadap hari ini).
+`npm run db:set-password` mengatur ulang password **semua** pengguna ke nilai `SEED_PASSWORD` (bcrypt) tanpa menyentuh data lain, dan mengeluarkan semua sesi login.
 
 ### Login (data contoh)
 
-Buka http://localhost:3100/login. Semua akun internal memakai password dari `SEED_PASSWORD` di `.env.local`
+Buka http://localhost:3100/login. Semua pengguna memakai password yang sama, yaitu nilai `SEED_PASSWORD` di `.env.local`
 (hanya untuk pengembangan — ganti sebelum dipakai sungguhan):
 
 | Role | Email | Setelah login |
@@ -83,7 +84,7 @@ cek sesi → 401, cek role → 403, cek Origin untuk POST/PUT/PATCH/DELETE → 4
 | POST | `/auth/logout` | hapus sesi di DB & cookie |
 | GET | `/auth/me` | pengguna yang login + halaman berandanya |
 
-- Password di-hash **scrypt** (`pengguna.password_hash`); cookie hanya berisi token acak, DB menyimpan SHA-256-nya (tabel `sesi`).
+- Password di-hash **bcrypt** cost 12 (`pengguna.password_hash`, maks. 72 byte); cookie hanya berisi token acak, DB menyimpan SHA-256-nya (tabel `sesi`).
 - 5 kali salah password → akun dikunci 15 menit (`429`). Email tidak terdaftar & password salah memberi pesan yang sama.
 - `src/proxy.ts` hanya cek cepat cookie untuk mengalihkan halaman `/admin` & `/beranda` ke `/login?next=…`;
   validasi sesi yang sebenarnya selalu di API. Klien (`src/lib/api.ts`) otomatis kembali ke login saat API menjawab 401.

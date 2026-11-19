@@ -2,7 +2,8 @@
 //   node --env-file=.env.local scripts/db.mjs setup   -> buat database (bila belum ada), jalankan skema, isi data contoh
 //   node --env-file=.env.local scripts/db.mjs migrate -> jalankan file sql/*.sql
 //   node --env-file=.env.local scripts/db.mjs seed    -> kosongkan & isi ulang data contoh
-import crypto from 'node:crypto';
+//   node --env-file=.env.local scripts/db.mjs set-password -> atur password SEMUA pengguna ke SEED_PASSWORD (bcrypt)
+import bcrypt from 'bcryptjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
@@ -32,11 +33,24 @@ async function migrate(c) {
   }
 }
 
-// Format hash sama dengan src/lib/auth.ts: scrypt$N$r$p$salt$hash (base64url)
-function hashPassword(pw) {
-  const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(pw.normalize('NFKC'), salt, 64, { N: 16384, r: 8, p: 1 });
-  return `scrypt$16384$8$1$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+// Hash bcrypt (cost 12) — sama dengan src/lib/auth.ts, sehingga hash dari skrip ini bisa dipakai login.
+const BCRYPT_COST = 12;
+const hashPassword = (pw) => bcrypt.hash(pw.normalize('NFKC'), BCRYPT_COST);
+
+/**
+ * Atur password SEMUA pengguna (semua role) ke nilai SEED_PASSWORD di .env.local.
+ * Setiap pengguna mendapat hash bcrypt dengan garam sendiri. Sesi login & kunci akun ikut direset
+ * supaya password lama tidak bisa dipakai lagi. Hanya untuk pengembangan.
+ */
+async function setAllPasswords(c) {
+  const pw = process.env.SEED_PASSWORD;
+  if (!pw || pw.length < 8) { console.warn('SEED_PASSWORD kosong / < 8 karakter: password tidak diubah'); return 0; }
+  if (Buffer.byteLength(pw) > 72) { console.error('SEED_PASSWORD lebih dari 72 byte (batas bcrypt)'); process.exit(1); }
+  const rows = (await c.query('SELECT id FROM pengguna ORDER BY id')).rows;
+  for (const r of rows) await c.query('UPDATE pengguna SET password_hash = $2, gagal_login = 0, terkunci_sampai = NULL WHERE id = $1', [r.id, await hashPassword(pw)]);
+  await c.query('DELETE FROM sesi');
+  console.log(`password bcrypt diset untuk ${rows.length} pengguna (dari SEED_PASSWORD); semua sesi login dihapus`);
+  return rows.length;
 }
 
 // ---------- data contoh ----------
@@ -70,13 +84,7 @@ async function seed(c) {
   const adminId = await ins(`INSERT INTO pengguna (kode, nama, email, no_hp, role, login_terakhir) VALUES ('ADM-001','Rina Andayani','rina@koperasiku.id','0812-2000-014','admin',now()) RETURNING id`);
   const pet = [];
   for (const [k, n, e, hp, w] of PETUGAS) pet.push(await ins('INSERT INTO pengguna (kode, nama, email, no_hp, role, wilayah_id, login_terakhir) VALUES ($1,$2,$3,$4,$5,$6,now()) RETURNING id', [k, n, e, hp, 'petugas', wil[w]]));
-  // password akun internal (owner, admin, petugas) untuk pengembangan — diambil dari SEED_PASSWORD di .env.local
-  const pw = process.env.SEED_PASSWORD;
-  if (pw && pw.length >= 8) {
-    const rows = (await c.query("SELECT id FROM pengguna WHERE role IN ('owner','admin','petugas')")).rows;
-    for (const r of rows) await c.query('UPDATE pengguna SET password_hash = $2 WHERE id = $1', [r.id, hashPassword(pw)]);
-    console.log(`password diset untuk ${rows.length} akun internal (dari SEED_PASSWORD)`);
-  } else console.warn('SEED_PASSWORD kosong / < 8 karakter: akun dibuat tanpa password, belum bisa login');
+  await setAllPasswords(c); // password semua pengguna dari SEED_PASSWORD
 
   // saluran & aturan pengingat
   for (const [i, [k, n, d]] of [['whatsapp', 'WhatsApp', 'Pengingat otomatis + bukti bayar terverifikasi'], ['sms', 'SMS', 'Cadangan bila WhatsApp gagal terkirim'], ['telepon', 'Telepon oleh petugas', 'Tugas telepon muncul di aplikasi petugas'], ['surat', 'Surat tagihan', 'Dicetak admin, diantar petugas (H+7 & H+30)']].entries())
@@ -152,4 +160,5 @@ await c.connect();
 try {
   if (cmd === 'setup' || cmd === 'migrate') await migrate(c);
   if (cmd === 'setup' || cmd === 'seed') await seed(c);
+  if (cmd === 'set-password') await setAllPasswords(c);
 } finally { await c.end(); }

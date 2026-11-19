@@ -17,6 +17,7 @@ npm run dev          # http://localhost:3100  (port 3000 dipakai aplikasi lain d
 npm run db:setup     # buat db_koperasi (bila belum ada), migrasi sql/*.sql, seed
 npm run db:migrate   # hanya jalankan sql/*.sql (idempoten: IF NOT EXISTS)
 npm run db:seed      # kosongkan & isi ulang data contoh (juga menghapus semua sesi login)
+npm run db:set-password  # atur password SEMUA pengguna ke SEED_PASSWORD (bcrypt) tanpa menyentuh data lain
 npm run test:auth    # 16 uji autentikasi terhadap dev server yang berjalan
 npx next typegen     # perlu dijalankan bila menambah/menghapus route (menghasilkan RouteContext & tipe rute)
 npx tsc --noEmit && npx eslint src scripts && npm run build   # cek wajib sebelum selesai
@@ -87,7 +88,7 @@ export const GET = handle(async (req: Request, ctx: RouteContext<"/api/v1/x/[id]
 - Tambah kolom/tabel baru → sesuaikan `scripts/db.mjs` (seed) bila perlu data contoh.
 
 ## Autentikasi
-- Login `POST /api/v1/auth/login` → cookie `koperasi_sesi` (httpOnly, SameSite=Lax; 12 jam / 30 hari "ingat"). Token acak; DB (`sesi`) menyimpan SHA-256-nya. Password scrypt di `pengguna.password_hash`; 5× salah → kunci 15 menit.
+- Login `POST /api/v1/auth/login` → cookie `koperasi_sesi` (httpOnly, SameSite=Lax; 12 jam / 30 hari "ingat"). Token acak; DB (`sesi`) menyimpan SHA-256-nya. Password **bcrypt** (`bcryptjs`, cost 12, maks. 72 byte) di `pengguna.password_hash`, lewat `hashPassword`/`verifyPassword` di `src/lib/auth.ts`; 5× salah → kunci 15 menit. Skrip `scripts/db.mjs` memakai bcrypt yang sama.
 - Sumber kebenaran sesi: `getSessionUser()`/`requireUser()` di `src/lib/auth.ts` (Data Access Layer). `proxy.ts` hanya optimistic redirect; **otorisasi sebenarnya selalu di API** (`handle(..., { roles })`). Jangan mengandalkan pengecekan role di UI saja.
 - Role per endpoint: `ROLES.admin` = admin + owner. Endpoint khusus petugas/anggota nanti pakai role-nya sendiri **dan** batasi data ke milik pengguna itu (mis. petugas hanya tagihan wilayahnya).
 - `BERANDA` di `auth.ts` memetakan role → halaman awal; ubah di sana saat halaman role baru selesai.
@@ -100,7 +101,7 @@ export const GET = handle(async (req: Request, ctx: RouteContext<"/api/v1/x/[id]
 5. Beri tahu user hal yang belum dibuat atau diasumsikan; jangan mengklaim selesai bila belum diuji.
 
 ## Git
-- Repo: `https://github.com/Alter-Indonesia/Koperasi_nextjs.git`, branch `main`.
+- Repo: `https://github.com/Alter-Indonesia/Koperasi_nextjs.git`. `main` berisi commit awal; **semua commit dan push berikutnya memakai branch `asepdev2026`** (bukan `main`). Pastikan `git branch --show-current` = `asepdev2026` sebelum commit; push dengan `git push -u origin asepdev2026`. Jangan push ke `main` kecuali user memintanya.
 - **Commit/push hanya bila user meminta.** Pesan commit Bahasa Indonesia ringkas (apa + kenapa). Jangan commit `.env*` (kecuali `.env.example`), `node_modules`, `.next`.
 - Port 3000 di mesin ini milik aplikasi lain — jangan dihentikan; proyek ini 3100.
 

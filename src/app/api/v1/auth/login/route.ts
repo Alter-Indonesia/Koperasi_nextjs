@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { one, q } from "@/lib/db";
-import { BERANDA, bersihkanSesi, createSession, dummyPasswordHash, KUNCI_MENIT, MAKS_GAGAL, verifyPassword, type Role } from "@/lib/auth";
+import { BERANDA, bersihkanSesi, createSession, dummyPasswordHash, KUNCI_MENIT, MAKS_GAGAL, PASSWORD_MAKS_BYTE, verifyPassword, type Role } from "@/lib/auth";
 import { body, handle, HttpError, ok } from "@/lib/http";
 
 const Login = z.object({
   email: z.string().trim().toLowerCase().email("Format email tidak valid").max(120),
-  password: z.string().min(1, "Password wajib diisi").max(200),
+  password: z
+    .string()
+    .min(1, "Password wajib diisi")
+    .refine((p) => Buffer.byteLength(p) <= PASSWORD_MAKS_BYTE, "Password terlalu panjang"),
   ingat: z.boolean().default(false),
 });
 
