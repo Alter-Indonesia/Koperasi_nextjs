@@ -1,26 +1,86 @@
 @import "tailwindcss";
+/* Token design system KoperasiKu — disalin apa adanya dari ../design-system/tokens.css (tema Default di :root). */
+@import "../styles/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Matikan palet & skala bawaan Tailwind supaya hanya token design system yang bisa dipakai. */
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --shadow-*: initial;
 }
 
+/* Nama utilitas Tailwind -> variabel design system (nilai tetap dari tokens.css). */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-canvas: var(--bg-canvas);
+  --color-card: var(--bg-card);
+  --color-inverse: var(--bg-inverse);
+  --color-inverse-raised: var(--bg-inverse-raised);
+
+  --color-fg: var(--fg-default);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-inverse: var(--fg-inverse);
+  --color-fg-inverse-muted: var(--fg-inverse-muted);
+  --color-fg-inverse-nav: var(--fg-inverse-nav);
+  --color-on-accent: var(--fg-on-accent);
+  --color-on-warn: var(--fg-on-warn);
+
+  --color-accent: var(--accent-default);
+  --color-warn: var(--warn-default);
+  --color-warn-text: var(--warn-text);
+
+  --color-line: var(--line-default);
+  --color-line-subtle: var(--line-subtle);
+  --color-chart-muted: var(--chart-muted);
+
+  --color-kol-lancar: var(--kol-lancar);
+  --color-kol-dpk: var(--kol-dpk);
+  --color-kol-kurang-lancar: var(--kol-kurang-lancar);
+  --color-kol-diragukan: var(--kol-diragukan);
+  --color-kol-macet: var(--kol-macet);
+
+  --radius-chip: var(--radius-sm);
+  --radius-ctl: var(--radius-md);
+  --radius-card: var(--radius-lg);
+  --radius-card-xl: var(--radius-xl);
+  --radius-pill: var(--radius-full);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Skala tipografi design system (README: Tipografi) */
+  --text-kpi: 28px;
+  --text-kpi--line-height: 34px;
+  --text-page: 26px;
+  --text-page--line-height: 32px;
+  --text-mobile: 22px;
+  --text-mobile--line-height: 28px;
+  --text-appbar: 18px;
+  --text-appbar--line-height: 24px;
+  --text-title: 16px;
+  --text-title--line-height: 22px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-small: 12px;
+  --text-small--line-height: 16px;
+  --text-caption: 11px;
+  --text-caption--line-height: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-canvas);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+* {
+  border-color: var(--line-default);
 }

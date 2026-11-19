@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  async redirects() {
+    // Sementara aplikasi baru punya halaman Admin
+    return [{ source: "/", destination: "/admin", permanent: false }];
+  },
   turbopack: {
     rules: {
       "*.css": {

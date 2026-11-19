@@ -1,0 +1,128 @@
+/* Tema · Default */
+:root {
+  --bg-canvas: #F5F5F5;
+  --bg-card: #FFFFFF;
+  --bg-inverse: #0A0A0A;
+  --bg-inverse-raised: #1C1C1C;
+  --fg-default: #0A0A0A;
+  --fg-muted: #6B6B6B;
+  --fg-subtle: #8A8A8A;
+  --fg-inverse: #F5F5F5;
+  --fg-inverse-muted: #A3A3A3;
+  --fg-inverse-nav: #D4D4D4;
+  --fg-on-accent: #0A0A0A;
+  --fg-on-warn: #FFFFFF;
+  --accent-default: #F5C518;
+  --warn-default: #D97706;
+  --warn-text: #B45309;
+  --line-default: #E5E5E5;
+  --line-subtle: #EEEEEE;
+  --chart-muted: #E0E0E0;
+  --kol-lancar: #0A0A0A;
+  --kol-dpk: #F5C518;
+  --kol-kurang-lancar: #D97706;
+  --kol-diragukan: #9A5405;
+  --kol-macet: #5C2E02;
+}
+/* Tema · Sage Calm */
+[data-tema="Sage Calm"] {
+  --bg-canvas: #F2F1EC;
+  --bg-card: #FCFBF8;
+  --bg-inverse: #2F3A34;
+  --bg-inverse-raised: #3A4740;
+  --fg-default: #2F3A34;
+  --fg-muted: #6E756F;
+  --fg-subtle: #8F958F;
+  --fg-inverse: #F2F1EC;
+  --fg-inverse-muted: #A7B0A9;
+  --fg-inverse-nav: #D5DBD5;
+  --fg-on-accent: #2F3A34;
+  --fg-on-warn: #FFFFFF;
+  --accent-default: #A9C9A4;
+  --warn-default: #D99A6C;
+  --warn-text: #B5683A;
+  --line-default: #E3E3DC;
+  --line-subtle: #ECEBE5;
+  --chart-muted: #DEDDD6;
+  --kol-lancar: #2F3A34;
+  --kol-dpk: #A9C9A4;
+  --kol-kurang-lancar: #D99A6C;
+  --kol-diragukan: #B7794F;
+  --kol-macet: #8A5A3C;
+}
+/* Tema · Warm Sand */
+[data-tema="Warm Sand"] {
+  --bg-canvas: #F5F0E8;
+  --bg-card: #FFFDF9;
+  --bg-inverse: #3B3631;
+  --bg-inverse-raised: #48423C;
+  --fg-default: #3B3631;
+  --fg-muted: #756D64;
+  --fg-subtle: #968E85;
+  --fg-inverse: #F5F0E8;
+  --fg-inverse-muted: #B3AAA0;
+  --fg-inverse-nav: #E0D8CE;
+  --fg-on-accent: #3B3631;
+  --fg-on-warn: #FFFFFF;
+  --accent-default: #E9C97E;
+  --warn-default: #D58F62;
+  --warn-text: #B2643A;
+  --line-default: #E8E1D6;
+  --line-subtle: #EFE9DF;
+  --chart-muted: #E4DDD2;
+  --kol-lancar: #3B3631;
+  --kol-dpk: #E9C97E;
+  --kol-kurang-lancar: #D58F62;
+  --kol-diragukan: #B0703F;
+  --kol-macet: #7E4E2F;
+}
+/* Tema · Dusty Blue */
+[data-tema="Dusty Blue"] {
+  --bg-canvas: #EEF1F5;
+  --bg-card: #FAFBFD;
+  --bg-inverse: #2D3A4A;
+  --bg-inverse-raised: #3A4859;
+  --fg-default: #2D3A4A;
+  --fg-muted: #687485;
+  --fg-subtle: #8994A3;
+  --fg-inverse: #EEF1F5;
+  --fg-inverse-muted: #A5B0BF;
+  --fg-inverse-nav: #D3DBE5;
+  --fg-on-accent: #2D3A4A;
+  --fg-on-warn: #FFFFFF;
+  --accent-default: #A7C1DD;
+  --warn-default: #E09A7E;
+  --warn-text: #BE6A4C;
+  --line-default: #DFE4EB;
+  --line-subtle: #E8ECF1;
+  --chart-muted: #DCE2EA;
+  --kol-lancar: #2D3A4A;
+  --kol-dpk: #A7C1DD;
+  --kol-kurang-lancar: #E09A7E;
+  --kol-diragukan: #C2785C;
+  --kol-macet: #8E5240;
+}
+/* Core · Default */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --size-control-sm: 30px;
+  --size-control-md: 40px;
+  --size-control-lg: 44px;
+  --size-control-xl: 52px;
+  --size-table-row: 58px;
+  --size-sidebar: 240px;
+  --size-bottom-nav: 76px;
+  --size-icon: 16px;
+}
