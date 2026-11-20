@@ -58,7 +58,7 @@ export const openapi = {
       "Di halaman dokumentasi ini, login dulu di `/login` pada browser yang sama (otomatis dipakai Test Request), atau tempel token di tombol **Authorize**.",
       "",
       "## Hak akses",
-      "Semua endpoint data saat ini hanya untuk role **admin** dan **owner**. Role `petugas` dan `anggota` mendapat `403`.",
+      "Endpoint data Admin hanya untuk role **admin** dan **owner**; endpoint `/petugas/*` untuk role **petugas** (data milik sendiri). `anggota` mendapat `403`.",
       "Request yang mengubah data (POST/PUT/PATCH) dari Origin yang berbeda ditolak (`403`).",
       "",
       "## Konvensi",
@@ -79,6 +79,7 @@ export const openapi = {
     { name: "Pengingat", description: "Saluran, jadwal, template, dan log pengingat tagihan" },
     { name: "Laporan", description: "Laporan penagihan" },
     { name: "Referensi", description: "Data pendukung (petugas)" },
+    { name: "Petugas", description: "Aplikasi petugas lapangan: tugas hari ini, setoran kas, profil (data milik petugas yang login)" },
     { name: "Master Data", description: "Wilayah dan tenor pinjaman (soft delete)" },
     { name: "Persetujuan", description: "Keputusan Owner untuk pinjaman di atas Rp 20 juta" },
     { name: "Sistem", description: "Pengguna, role & hak akses, dan log aktivitas" },
@@ -173,6 +174,14 @@ export const openapi = {
           "422": err("Anggota tidak aktif / tenor tidak tersedia"),
           ...UNAUTH,
         },
+      },
+    },
+    "/api/v1/pinjaman/pengaturan": {
+      get: {
+        tags: ["Pinjaman"],
+        summary: "Pengaturan untuk form pinjaman",
+        description: "Perlakuan biaya admin yang berlaku saat ini (Sistem › Pengaturan). Cukup hak lihat Pinjaman.",
+        responses: { "200": resp("Pengaturan", data(obj({ admin_fee_mode: { type: "string", enum: ["potong", "tambah"], description: "potong = pengurang dana cair; tambah = penambah pokok pinjaman" } }))), ...UNAUTH },
       },
     },
     "/api/v1/pinjaman/{id}": {
@@ -302,6 +311,8 @@ export const openapi = {
         parameters: [
           dateQ("Tanggal acuan; default hari ini"),
           { name: "status", in: "query", schema: { type: "string", enum: ["all", "unpaid", "overdue"], default: "all" }, description: "`unpaid` = jatuh tempo pada tanggal itu & belum dibayar; `overdue` = sudah lewat jatuh tempo & belum dibayar" },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Cari nama anggota, no. pinjaman, atau nama petugas" },
+          { name: "bucket", in: "query", schema: { type: "string", enum: ["overdue", "today", "tomorrow", "h3"] }, description: "Daftar di balik satu kartu ringkasan (lewat jatuh tempo / hari ini / H-1 / H-3); mengabaikan `status`. Jumlahnya sama dengan `meta.summary.*_count`" },
         ],
         responses: {
           "200": resp(
@@ -494,6 +505,21 @@ export const openapi = {
         responses: { "200": resp("Dihapus", data(obj({ id: integer, name: string, deleted: { type: "boolean" } }))), "404": err("Wilayah tidak ditemukan"), "409": err("Wilayah masih dipakai"), ...UNAUTH },
       },
     },
+    "/api/v1/pengaturan": {
+      get: {
+        tags: ["Sistem"],
+        summary: "Daftar pengaturan sistem",
+        description: "Hak: Pengaturan › lihat. Tiap baris = satu pengaturan; `value_type` + `config` menentukan bentuk isiannya (halaman dibentuk otomatis dari sini).",
+        responses: { "200": resp("Pengaturan", data(arr(ref("Setting")))), ...UNAUTH },
+      },
+      patch: {
+        tags: ["Sistem"],
+        summary: "Ubah pengaturan",
+        description: "Hak: Pengaturan › ubah. Beberapa pengaturan sekaligus; nilai divalidasi menurut tipe & config barisnya.",
+        requestBody: jsonBody(obj({ values: { type: "object", additionalProperties: true, example: { admin_fee_mode: "tambah" }, description: "{ key: nilai }" } }, ["values"])),
+        responses: { "200": resp("Tersimpan (daftar terbaru)", data(arr(ref("Setting")))), "400": err("Data tidak valid"), "422": err("Pengaturan tidak dikenal / nilai tidak valid"), ...UNAUTH },
+      },
+    },
     "/api/v1/tenor": {
       get: {
         tags: ["Master Data"],
@@ -531,7 +557,7 @@ export const openapi = {
         summary: "Hapus tenor (soft delete)",
         description: `Role: ${ADMIN}. Pinjaman yang sudah ada tidak terpengaruh.`,
         parameters: [idPath("ID tenor")],
-        responses: { "200": resp("Dihapus", data(obj({ id: integer, months: integer, deleted: { type: "boolean" } }))), "404": err("Tenor tidak ditemukan"), ...UNAUTH },
+        responses: { "200": resp("Dihapus", data(obj({ id: integer, duration: integer, unit: { type: "string", enum: ["bulan", "hari"] }, deleted: { type: "boolean" } }))), "404": err("Tenor tidak ditemukan"), ...UNAUTH },
       },
     },
     "/api/v1/role": {
@@ -565,7 +591,7 @@ export const openapi = {
       put: {
         tags: ["Sistem"],
         summary: "Ganti hak akses role",
-        description: "Mengganti seluruh hak akses. Aksi selain `view` otomatis menyertakan `view`. Role `admin` dikunci (409). Perubahan berlaku seketika.",
+        description: "Mengganti seluruh hak akses. Aksi selain `view` otomatis menyertakan `view`. Role `owner` (superadmin) dikunci (409). Perubahan berlaku seketika.",
         parameters: [idPath("ID role")],
         requestBody: jsonBody(obj({ permissions: ref("PermissionMatrix") }, ["permissions"])),
         responses: { "200": resp("Tersimpan", data(obj({ id: integer, modules: { ...integer, description: "Jumlah modul yang diberi hak" } }))), "400": err("Modul/aksi tidak dikenal"), "404": err("Role tidak ditemukan"), "409": err("Role admin dikunci"), ...UNAUTH },
@@ -631,6 +657,49 @@ export const openapi = {
         responses: { "200": resp("Petugas", data(arr(ref("Collector")))), ...UNAUTH },
       },
     },
+    "/api/v1/petugas/tugas": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Tagihan yang ditugaskan kepada saya hari ini",
+        description: "Role: Petugas (modul `my_tasks`). Hanya penugasan milik pengguna yang login; telat lebih dulu, yang sudah dibayar (menunggu verifikasi/lunas) di akhir.",
+        responses: {
+          "200": resp("Tugas hari ini", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer })), obj({ date, total: integer, done: integer, amount_total: rp(), amount_done: rp() }))),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/setoran": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Uang tunai di tangan, rincian hari ini, riwayat setoran",
+        description: "Role: Petugas (modul `my_deposits`). Uang di tangan = pembayaran tunai petugas yang belum disetor. `meta.deadline` = batas setor (pengaturan `deposit_deadline`).",
+        responses: {
+          "200": resp("Setoran kas", data(obj({
+            cash_on_hand: obj({ amount: rp(), count: integer }), non_cash: obj({ amount: rp(), count: integer }),
+            today: arr(obj({ id: integer, amount: rp(), method: { type: "string", enum: ["tunai", "transfer", "qris"] }, paid_at: dateTime, deposit_id: nullable(integer), member_name: string })),
+            deposits: arr(obj({ id: integer, deposited_on: date, amount: rp(), payment_count: integer, status: { type: "string", enum: ["menunggu", "cocok", "selisih"] }, received_by_name: nullable(string) })),
+          }), obj({ date, deadline: { type: "string", example: "17:00" } }))),
+          ...UNAUTH,
+        },
+      },
+      post: {
+        tags: ["Petugas"],
+        summary: "Setor seluruh uang tunai yang belum disetor",
+        description: "Role: Petugas (hak `create` pada `my_deposits`). Tanpa body. Semua pembayaran tunai yang belum disetor dikelompokkan menjadi satu setoran berstatus `menunggu` (dicocokkan kasir).",
+        responses: { "201": resp("Setoran dibuat", data(obj({ id: integer, amount: rp(), payment_count: integer }))), "422": err("Tidak ada uang tunai yang perlu disetor"), ...UNAUTH },
+      },
+    },
+    "/api/v1/petugas/profil": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Profil petugas dan capaian bulan ini",
+        description: "Role: Petugas (modul `my_tasks`). Target dari pengaturan `collector_monthly_target`; collection rate = tertagih bulan ini / target (0–1).",
+        responses: {
+          "200": resp("Profil", data(obj({ id: integer, code: nullable(string), name: string, email: string, region_name: nullable(string), member_count: integer, month: { type: "string", example: "2026-11" }, collected: rp(), visits: integer, target: rp(), collection_rate: number, remaining: rp() }))),
+          ...UNAUTH,
+        },
+      },
+    },
   },
 
   components: {
@@ -676,13 +745,13 @@ export const openapi = {
         paid_today: obj({ count: integer, amount: rp(), from_due: integer }),
         arrears: obj({ amount: rp(), members: integer, npl: { type: ["number", "null"], description: "Rasio NPL 0–1", example: 0.101 } }),
         flow: obj({ active_loans: integer, due: integer, reminders: integer, payments: integer, verifications: integer, paid_off: integer, follow_up: integer }),
-        pending: arr(obj({ id: integer, amount: rp(), method: string, method_note: nullable(string), paid_at: dateTime, installment_sequence: integer, tenor_months: integer, loan_number: string, member_name: string, collector_name: nullable(string) })),
+        pending: arr(obj({ id: integer, amount: rp(), method: string, method_note: nullable(string), paid_at: dateTime, installment_sequence: integer, tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, loan_number: string, member_name: string, collector_name: nullable(string) })),
         collectors: arr(obj({ id: integer, name: string, region_name: string, tasks: integer, completed: integer, collected: rp() })),
       }),
 
       LoanSummary: obj({
         id: integer, loan_number: { ...string, example: "PJ-25-0516" }, member_id: integer, member_name: string, member_number: string, region_name: string,
-        principal_amount: rp(), tenor_months: integer, installment_amount: rp("Angsuran per bulan"), next_due_date: nullable(date), remaining_balance: rp("Sisa pinjaman"),
+        principal_amount: rp(), tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, installment_amount: rp("Angsuran per bulan/hari (mengikuti tenor_unit)"), next_due_date: nullable(date), remaining_balance: rp("Sisa pinjaman"),
         paid_installments: integer, days_overdue: { ...integer, description: "Hari keterlambatan angsuran tertua yang belum dibayar (0 = tidak telat)" }, collectibility: ref("Kolektibilitas"),
       }),
       Installment: obj({
@@ -693,7 +762,7 @@ export const openapi = {
         allOf: [
           ref("LoanSummary"),
           obj({
-            purpose: nullable(string), collateral: nullable(string), disbursed_on: nullable(date), interest_rate_percent: { ...number, description: "% per bulan (flat)", example: 1.5 },
+            purpose: nullable(string), collateral: nullable(string), disbursed_on: nullable(date), interest_rate_percent: { ...number, description: "% flat per bulan/hari (mengikuti tenor_unit), diambil dari master tenor", example: 1.5 },
             arrears_amount: rp("Total angsuran yang sudah lewat jatuh tempo"), status: { type: "string", enum: ["pengajuan", "aktif", "lunas", "ditolak"] },
             installments: arr(ref("Installment")),
           }),
@@ -703,13 +772,13 @@ export const openapi = {
         {
           member_id: { ...integer, minimum: 1 },
           principal_amount: { type: "integer", minimum: 500000, maximum: 500000000, example: 10000000 },
-          tenor_months: { type: "integer", minimum: 1, maximum: 60, description: "Bulan", example: 12 },
-          interest_rate_percent: { type: "number", minimum: 0, maximum: 10, default: 1.5 },
+          tenor_id: { ...integer, minimum: 1, description: "ID master tenor (GET /tenor). Lama, satuan (bulan/hari), dan persen jasa diambil dari tenor ini" },
+          admin_fee: { type: "integer", minimum: 0, default: 0, description: "Biaya admin (Rp); harus lebih kecil dari plafon. Perlakuannya (pengurang dana cair / penambah pokok) mengikuti Sistem › Pengaturan dan dicatat di pinjaman sebagai admin_fee_mode", example: 200000 },
           purpose: { type: "string", minLength: 3, maxLength: 120, example: "Modal usaha" },
           collateral: { type: "string", maxLength: 120, example: "BPKB motor" },
-          disbursed_on: { ...date, description: "Jatuh tempo angsuran ke-n = tanggal ini + n bulan" },
+          disbursed_on: { ...date, description: "Jatuh tempo angsuran ke-n = tanggal ini + n bulan (tenor bulanan) atau + n hari (tenor harian)" },
         },
-        ["member_id", "principal_amount", "tenor_months", "purpose", "disbursed_on"],
+        ["member_id", "principal_amount", "tenor_id", "purpose", "disbursed_on"],
       ),
 
       MemberSummary: obj({
@@ -746,11 +815,17 @@ export const openapi = {
         biodata: ref("Biodata"), has_id_card: { type: "boolean", description: "Foto KTP sudah diunggah (ambil lewat GET /anggota/{id}/ktp)" },
         created_at: dateTime, updated_at: dateTime,
         created_by_name: { type: ["string", "null"], description: "Nama pengguna created_by" }, updated_by_name: { type: ["string", "null"], description: "Nama pengguna updated_by" },
-        loans: arr(obj({ id: integer, loan_number: string, principal_amount: rp(), tenor_months: integer, installment_amount: rp(), status: string, remaining_balance: rp(), arrears_amount: rp(), collectibility: ref("Kolektibilitas") })),
+        loans: arr(obj({ id: integer, loan_number: string, principal_amount: rp(), tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, installment_amount: rp(), status: string, remaining_balance: rp(), arrears_amount: rp(), collectibility: ref("Kolektibilitas") })),
       }),
       Region: obj({ id: integer, name: string, member_count: { ...integer, description: "Anggota aktif di wilayah ini" }, user_count: { ...integer, description: "Pengguna di wilayah ini" }, created_at: dateTime, updated_at: dateTime, created_by_name: nullable(string), updated_by_name: nullable(string) }),
-      Tenor: obj({ id: integer, months: { ...integer, example: 12 }, label: nullable(string), is_active: { type: "boolean" }, sort_order: integer, loan_count: { ...integer, description: "Hanya di detail" } }),
-      TenorInput: obj({ months: { type: "integer", minimum: 1, maximum: 60, example: 12 }, label: { type: "string", maxLength: 40 }, is_active: { type: "boolean", default: true }, sort_order: { type: "integer", minimum: 0, maximum: 999, default: 0 } }, ["months"]),
+      Tenor: obj({ id: integer, duration: { ...integer, example: 12 }, unit: { type: "string", enum: ["bulan", "hari"] }, interest_rate_percent: { ...number, description: "Jasa flat (%) per bulan/hari mengikuti satuan", example: 1.5 }, label: nullable(string), is_active: { type: "boolean" }, sort_order: integer, loan_count: { ...integer, description: "Hanya di detail" } }),
+      Setting: obj({
+        id: integer, key: { ...string, example: "admin_fee_mode" }, group_name: { ...string, example: "Pinjaman" }, label: string, description: nullable(string),
+        value_type: { type: "string", enum: ["text", "number", "boolean", "select"] }, value: { description: "Nilai saat ini (tipe mengikuti value_type)" },
+        config: { type: "object", description: "select: options[{value,label}]; number: min,max,step,prefix,suffix; text: max_length", additionalProperties: true },
+        sort_order: integer, updated_at: dateTime, updated_by_name: nullable(string),
+      }),
+      TenorInput: obj({ duration: { type: "integer", minimum: 1, maximum: 365, description: "Bulan (maks. 60) atau hari (maks. 365) sesuai unit", example: 12 }, unit: { type: "string", enum: ["bulan", "hari"], default: "bulan" }, interest_rate_percent: { type: "number", minimum: 0, maximum: 100, default: 1.5 }, label: { type: "string", maxLength: 40 }, is_active: { type: "boolean", default: true }, sort_order: { type: "integer", minimum: 0, maximum: 999, default: 0 } }, ["duration"]),
       PermissionMatrix: { type: "object", description: "Peta modul → aksi yang diizinkan. Modul: dashboard, members, loans, loan_approvals, due_dates, payments, assignments, reminders, reports, regions, tenors, users, roles, activity_logs.", additionalProperties: arr({ type: "string", enum: ["view", "create", "update", "delete"] }), example: { members: ["view", "create"], loans: ["view"] } },
       RoleSummary: obj({ id: integer, code: string, name: string, description: nullable(string), area: { type: "string", enum: ["admin", "owner", "petugas", "anggota"] }, is_system: { type: "boolean" }, user_count: integer, module_count: integer }),
       RoleDetail: obj({ id: integer, code: string, name: string, description: nullable(string), area: string, is_system: { type: "boolean" }, user_count: integer, permissions: ref("PermissionMatrix"), created_at: dateTime, updated_at: dateTime, created_by_name: nullable(string), updated_by_name: nullable(string) }),
@@ -767,7 +842,7 @@ export const openapi = {
         status_code: nullable(integer), ip: nullable(string), user_agent: nullable(string), details: { type: ["object", "null"], description: "{ fields: [nama kolom] } atau { email } untuk login gagal" }, created_at: dateTime,
       }),
       Approval: obj({
-        id: integer, loan_number: string, member_id: integer, member_name: string, member_number: string, region_name: string, principal_amount: rp(), tenor_months: integer, installment_amount: rp(),
+        id: integer, loan_number: string, member_id: integer, member_name: string, member_number: string, region_name: string, principal_amount: rp(), tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, admin_fee: rp("Biaya admin"), installment_amount: rp(),
         interest_rate_percent: number, purpose: nullable(string), collateral: nullable(string), disbursed_on: nullable(date), status: string, created_at: dateTime, submitted_by_name: nullable(string),
         decided_by_name: nullable(string), decided_at: nullable(dateTime), decision_notes: nullable(string), member_active_loans: integer, member_outstanding: rp(),
       }),
@@ -778,20 +853,20 @@ export const openapi = {
       }),
 
       DueInstallment: obj({
-        id: { ...integer, description: "ID angsuran" }, sequence: integer, tenor_months: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] },
+        id: { ...integer, description: "ID angsuran" }, loan_id: integer, sequence: integer, tenor_duration: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] },
         loan_number: string, member_name: string, region_name: string, collector_name: nullable(string), days_overdue: integer,
         reminder_channel: nullable(string), reminder_status: nullable({ type: "string", enum: ["terkirim", "dibaca", "gagal"] }),
       }),
 
       PaymentSummary: obj({
         id: integer, amount: rp("Nominal + denda"), method: { type: "string", enum: ["tunai", "transfer", "qris"] }, method_note: nullable(string), paid_at: dateTime,
-        status: { type: "string", enum: ["menunggu", "terverifikasi", "ditolak"] }, member_name: string, loan_number: string, installment_sequence: integer, tenor_months: integer, collector_name: nullable(string),
+        status: { type: "string", enum: ["menunggu", "terverifikasi", "ditolak"] }, member_name: string, loan_number: string, installment_sequence: integer, tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, collector_name: nullable(string),
       }),
       PaymentDetail: obj({
         id: integer, amount: rp(), penalty_amount: rp(), installment_total: rp("Total angsuran"), method: string, method_note: nullable(string), paid_at: dateTime,
         proof_image: nullable(string), location_name: nullable(string), lat: nullable(number), lng: nullable(number), notes: nullable(string),
         status: { type: "string", enum: ["menunggu", "terverifikasi", "ditolak"] }, verification_notes: nullable(string), verified_at: nullable(dateTime), verifier_name: nullable(string),
-        installment_sequence: integer, tenor_months: integer, due_date: date, installment_status: string, loan_id: integer, loan_number: string, member_name: string, member_address: string, region_name: string, collector_name: nullable(string),
+        installment_sequence: integer, tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, due_date: date, installment_status: string, loan_id: integer, loan_number: string, member_name: string, member_address: string, region_name: string, collector_name: nullable(string),
         remaining_balance: rp(), balance_before: rp("Sisa pinjaman sebelum verifikasi"), balance_after: rp("Sisa pinjaman setelah verifikasi"),
       }),
       VerifyRequest: obj(

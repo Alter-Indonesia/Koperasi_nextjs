@@ -9,17 +9,19 @@ import { BackLink } from "@/components/crud/EntityPages";
 import { ErrorBox, Modal, Skeleton } from "@/components/ui/Feedback";
 import { Textarea } from "@/components/ui/Form";
 import { api, ApiError, useApi } from "@/lib/api";
-import { jam, rupiah, tanggal } from "@/lib/format";
+import { type AdminFeeMode, loanAmounts } from "@/lib/loan-calc";
+import { jam, rupiah, tanggal, tenorLabel, type TenorUnit } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Detail = {
   id: number; loan_number: string; member_id: number; member_name: string; member_number: string; member_phone: string | null; region_name: string;
-  principal_amount: number; tenor_months: number; interest_rate_percent: number; installment_amount: number; purpose: string | null; collateral: string | null;
+  principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; admin_fee: number; admin_fee_mode: AdminFeeMode; interest_rate_percent: number; installment_amount: number; purpose: string | null; collateral: string | null;
   disbursed_on: string | null; status: "pengajuan" | "aktif" | "ditolak" | "lunas"; created_at: string; submitted_by_name: string | null;
   decided_by_name: string | null; decided_at: string | null; decision_notes: string | null; member_active_loans: number; member_outstanding: number;
 };
 
-export default function PersetujuanDetailPage({ params }: PageProps<"/owner/persetujuan/[id]">) {
+function PersetujuanDetailPage({ params }: PageProps<"/owner/persetujuan/[id]">) {
   const { id } = use(params);
   const router = useRouter();
   const { can } = useSession();
@@ -44,7 +46,7 @@ export default function PersetujuanDetailPage({ params }: PageProps<"/owner/pers
   }
 
   const pending = d?.status === "pengajuan";
-  const totalBack = d ? d.installment_amount * d.tenor_months : 0;
+  const totalBack = d ? d.installment_amount * d.tenor_duration : 0;
   return (
     <>
       <BackLink href="/owner/persetujuan">Persetujuan Pinjaman</BackLink>
@@ -61,8 +63,8 @@ export default function PersetujuanDetailPage({ params }: PageProps<"/owner/pers
             <Card title="Rincian Pinjaman">
               <div className="grid grid-cols-3 gap-6">
                 {([
-                  ["Plafon", rupiah(d.principal_amount)], ["Tenor", `${d.tenor_months} bulan`], ["Jasa", `${d.interest_rate_percent}% / bln flat`],
-                  ["Angsuran / bulan", rupiah(d.installment_amount)], ["Total kembali", rupiah(totalBack)], ["Rencana cair", d.disbursed_on ? tanggal(d.disbursed_on) : "—"],
+                  ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], ["Jasa", `${d.interest_rate_percent}% / ${d.tenor_unit === "hari" ? "hari" : "bln"} flat`],
+                  [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Biaya admin", `${rupiah(d.admin_fee)} (${d.admin_fee_mode === "tambah" ? "penambah" : "pengurang"})`], ["Pokok ditagih", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).financed)], ["Dana diterima", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).received)], ["Total kembali", rupiah(totalBack)], ["Rencana cair", d.disbursed_on ? tanggal(d.disbursed_on) : "—"],
                   ["Tujuan", d.purpose ?? "—"], ["Jaminan", d.collateral ?? "—"], ["Diajukan oleh", d.submitted_by_name ?? "—"],
                 ] as const).map(([l, v]) => (
                   <div key={l}>
@@ -119,3 +121,5 @@ export default function PersetujuanDetailPage({ params }: PageProps<"/owner/pers
     </>
   );
 }
+
+export default withFreshState(PersetujuanDetailPage, { module: "loan_approvals" });

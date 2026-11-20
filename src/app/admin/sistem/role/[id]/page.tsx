@@ -5,7 +5,8 @@ import type { FieldDef } from "@/components/crud/EntityForm";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Form";
 import { api } from "@/lib/api";
-import { ACTION_LABEL, ACTIONS, AREAS, AREA_LABEL, MODULES, MODULE_ACTIONS, type Action, type Area } from "@/lib/permissions";
+import { ACTION_LABEL, ACTIONS, AREAS, AREA_LABEL, MODULES, MODULE_ACTIONS, SUPERADMIN_ROLE, type Action, type Area } from "@/lib/permissions";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Matrix = Record<string, Action[]>;
 type Role = {
@@ -32,7 +33,7 @@ function PermissionMatrix({ initial, editable, locked, onChange }: { initial: Ma
     onChange(next);
   }
   return (
-    <Card title="Hak Akses" subtitle={locked ? "Role admin dikunci agar tidak ada yang mengunci dirinya sendiri dari sistem." : editable ? "Centang aksi yang boleh dilakukan role ini." : "Aksi yang boleh dilakukan role ini."}>
+    <Card title="Hak Akses" subtitle={locked ? "Role Owner adalah superadmin: selalu memiliki kendali penuh dan tidak bisa diubah." : editable ? "Centang aksi yang boleh dilakukan role ini." : "Aksi yang boleh dilakukan role ini."}>
       <table className="w-full text-body-sm">
         <thead>
           <tr className="text-left text-caption font-bold uppercase text-fg-muted">
@@ -67,11 +68,12 @@ function PermissionMatrix({ initial, editable, locked, onChange }: { initial: Ma
   );
 }
 
-export default function RoleDetailPage({ params }: PageProps<"/admin/sistem/role/[id]">) {
+function RoleDetailPage({ params }: PageProps<"/admin/sistem/role/[id]">) {
   const matrix = useRef<{ roleId: number; permissions: Matrix } | null>(null); // diisi hanya bila admin mengubah centang
   return (
     <EntityDetailPage<Role>
       params={params}
+      module="roles"
       heading={(r) => r.name}
       subtitle={(r) => `${r.code} · ${AREA_LABEL[r.area]} · ${r.user_count} pengguna`}
       formTitle="Data Role"
@@ -87,8 +89,9 @@ export default function RoleDetailPage({ params }: PageProps<"/admin/sistem/role
       }}
       canDelete={(r) => !r.is_system}
       deleteWarning={(r) => `Role ${r.name} akan dihapus. Role yang masih dipakai pengguna tidak bisa dihapus.`}
-      extra={(r, edit) => <PermissionMatrix key={`${edit}-${r.updated_at}`} initial={r.permissions} editable={edit && r.code !== "admin"} locked={r.code === "admin"} onChange={(m) => { matrix.current = { roleId: r.id, permissions: m }; }} />}
+      extra={(r, edit) => <PermissionMatrix key={`${edit}-${r.updated_at}`} initial={r.permissions} editable={edit && r.code !== SUPERADMIN_ROLE} locked={r.code === SUPERADMIN_ROLE} onChange={(m) => { matrix.current = { roleId: r.id, permissions: m }; }} />}
     />
   );
 }
 
+export default withFreshState(RoleDetailPage, { module: "roles" });

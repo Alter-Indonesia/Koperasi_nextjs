@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LogOut, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronsUpDown, LogOut, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cx } from "@/components/ui/cx";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -13,7 +13,7 @@ export type NavGroup = { label: string; items: NavItem[] };
  * Pola sidebar (design system: Nav/Active · Nav/Default)
  * Lebar 240 (size/sidebar), latar bg/inverse, item 208×44 radius 10, ikon Lucide 16 stroke 1.5.
  */
-export function Sidebar({ groups, user, onLogout }: { groups: NavGroup[]; user: { name: string; role: string } | null; onLogout: () => void }) {
+export function Sidebar({ groups, profileMenu = [], user, onLogout }: { groups: NavGroup[]; profileMenu?: NavItem[]; user: { name: string; role: string; email?: string } | null; onLogout: () => void }) {
   const path = usePathname();
   const isActive = (it: NavItem) => (it.exact ? path === it.href : path === it.href || path.startsWith(it.href + "/"));
   return (
@@ -28,8 +28,8 @@ export function Sidebar({ groups, user, onLogout }: { groups: NavGroup[]; user: 
       {/* tiap kelompok punya label pembatas (mis. MENU ADMIN · MASTER DATA · SISTEM); area menu bisa di-scroll bila panjang */}
       <nav className="-mx-1 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1 pb-4 [scrollbar-color:var(--fg-inverse-muted)_transparent] [scrollbar-width:thin]">
         {groups.map((g) => (
-          <div key={g.label} className="flex flex-col gap-1">
-            <div className="mb-1 px-2 text-caption font-bold tracking-[1px] text-fg-inverse-muted">{g.label}</div>
+          <div key={g.label || g.items[0]?.href} className="flex flex-col gap-1">
+            {g.label && <div className="mb-1 px-2 text-caption font-bold tracking-[1px] text-fg-inverse-muted">{g.label}</div>}
             {g.items.map((it) =>
               it.children ? (
                 <ParentItem key={it.label} item={it} isActive={isActive} />
@@ -40,22 +40,7 @@ export function Sidebar({ groups, user, onLogout }: { groups: NavGroup[]; user: 
           </div>
         ))}
       </nav>
-      <div className="flex items-center gap-3 rounded-[12px] bg-inverse-raised px-3 py-2.5">
-        {user ? (
-          <>
-            <Avatar name={user.name} size={36} tone="warn" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-body-sm font-bold text-fg-inverse">{user.name}</div>
-              <div className="text-small text-fg-inverse-muted">{user.role}</div>
-            </div>
-            <button onClick={onLogout} title="Keluar" aria-label="Keluar" className="cursor-pointer rounded-chip p-2 text-fg-inverse-muted hover:bg-inverse hover:text-fg-inverse">
-              <LogOut size={16} strokeWidth={1.5} />
-            </button>
-          </>
-        ) : (
-          <div className="h-9 w-full animate-pulse rounded-chip bg-inverse" />
-        )}
-      </div>
+      <ProfileMenu user={user} items={profileMenu} isActive={isActive} onLogout={onLogout} />
     </aside>
   );
 }
@@ -99,6 +84,68 @@ function ParentItem({ item, isActive }: { item: NavItem; isActive: (i: NavItem) 
         <ChevronDown size={16} strokeWidth={1.5} className={cx("text-fg-inverse-muted transition-transform", open && "rotate-180")} />
       </button>
       {open && item.children?.map((c) => <NavLink key={c.href} item={c} on={isActive(c)} child />)}
+    </div>
+  );
+}
+
+/**
+ * Kartu profil di bawah sidebar: klik membuka menu ke atas (gaya Claude) — email, menu Sistem sesuai hak akses, lalu Keluar.
+ * Tertutup bila klik di luar, tekan Esc, atau pindah halaman.
+ */
+function ProfileMenu({ user, items, isActive, onLogout }: { user: { name: string; role: string; email?: string } | null; items: NavItem[]; isActive: (i: NavItem) => boolean; onLogout: () => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const k = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [open]);
+  if (!user) return <div className="h-[56px] w-full animate-pulse rounded-[12px] bg-inverse-raised" />;
+  return (
+    <div className="relative">
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div role="menu" className="absolute right-0 bottom-full left-0 z-50 mb-2 flex flex-col gap-0.5 rounded-card border border-fg-inverse-muted/30 bg-inverse-raised p-2 shadow-lg">
+            {user.email && <div className="truncate px-3 pt-1 pb-2 text-small text-fg-inverse-muted">{user.email}</div>}
+            {items.map((it) => {
+              const Icon = it.icon;
+              const on = isActive(it);
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className={cx("flex h-10 items-center gap-3 rounded-ctl px-3 text-body-sm hover:bg-inverse", on ? "font-bold text-accent" : "font-medium text-fg-inverse-nav")}
+                >
+                  <Icon size={16} strokeWidth={1.5} />
+                  {it.label}
+                </Link>
+              );
+            })}
+            {items.length > 0 && <div className="my-1 border-t border-fg-inverse-muted/30" />}
+            <button role="menuitem" onClick={onLogout} className="flex h-10 cursor-pointer items-center gap-3 rounded-ctl px-3 text-left text-body-sm font-medium text-fg-inverse-nav hover:bg-inverse">
+              <LogOut size={16} strokeWidth={1.5} />
+              Keluar
+            </button>
+          </div>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="relative z-50 flex w-full cursor-pointer items-center gap-3 rounded-[12px] bg-inverse-raised px-3 py-2.5 text-left hover:bg-inverse-raised/80"
+      >
+        <Avatar name={user.name} size={36} tone="warn" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-body-sm font-bold text-fg-inverse">{user.name}</div>
+          <div className="text-small text-fg-inverse-muted">{user.role}</div>
+        </div>
+        <ChevronsUpDown size={16} strokeWidth={1.5} className="shrink-0 text-fg-inverse-muted" />
+      </button>
     </div>
   );
 }

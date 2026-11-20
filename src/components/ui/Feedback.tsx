@@ -39,7 +39,7 @@ export function Toast({ message, tone = "ok", onClose }: { message: string | nul
 }
 
 /** Panel modal sederhana (form tambah data) */
-export function Modal({ open, title, onClose, children, footer }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }) {
+export function Modal({ open, title, onClose, children, footer, wide }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
     if (!open) return;
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -49,7 +49,7 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-inverse/40 p-6" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-[520px] rounded-card-xl bg-card p-6" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={cx("w-full rounded-card-xl bg-card p-6", wide ? "max-w-[960px]" : "max-w-[520px]")} onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-appbar font-bold text-fg">{title}</h2>
           <button onClick={onClose} aria-label="Tutup" className="cursor-pointer text-fg-muted">

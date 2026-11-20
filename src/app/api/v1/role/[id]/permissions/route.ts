@@ -1,17 +1,17 @@
 import { one, tx } from "@/lib/db";
 import { body, currentUser, handle, HttpError, idParam, ok } from "@/lib/http";
 import { invalidateRbac } from "@/lib/rbac";
-import { MODULES } from "@/lib/permissions";
+import { MODULES, SUPERADMIN_ROLE } from "@/lib/permissions";
 import { PermissionsInput } from "@/lib/system-schema";
 
 // PUT /api/v1/role/{id}/permissions { permissions: { <modul>: ["view","create","update","delete"] } }
-// Mengganti seluruh hak akses role. Role "admin" dikunci agar tidak ada yang mengunci dirinya sendiri dari sistem.
+// Mengganti seluruh hak akses role. Role "owner" (superadmin) dikunci: selalu kendali penuh, tidak bisa dikurangi.
 export const PUT = handle(async (req: Request, ctx: RouteContext<"/api/v1/role/[id]/permissions">) => {
   const id = idParam((await ctx.params).id);
   const d = await body(req, PermissionsInput);
   const role = await one<{ code: string }>("SELECT code FROM roles WHERE id = $1 AND deleted_at IS NULL", [id]);
   if (!role) throw new HttpError(404, "Role tidak ditemukan");
-  if (role.code === "admin") throw new HttpError(409, "Hak akses role admin dikunci dan tidak bisa diubah");
+  if (role.code === SUPERADMIN_ROLE) throw new HttpError(409, "Hak akses role owner (superadmin) dikunci dan tidak bisa diubah");
   await tx(async (c) => {
     await c.query("DELETE FROM role_permissions WHERE role_id = $1", [id]);
     for (const m of MODULES) {

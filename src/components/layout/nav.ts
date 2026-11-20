@@ -1,6 +1,6 @@
 import {
   BadgeCheck, Bell, CalendarClock, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, Database, FileBarChart, History, LayoutDashboard, Map, MapPin,
-  ScrollText, Settings, ShieldCheck, UserCog, UserRound, Users, Wallet, type LucideIcon,
+  ScrollText, ShieldCheck, SlidersHorizontal, UserCog, UserRound, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import type { Action, Area, Module } from "@/lib/permissions";
 
@@ -18,10 +18,17 @@ export type NavGroupDef = { label: string; items: NavDef[] };
 
 /**
  * Menu per area. Tiap role hanya melihat menu areanya sendiri; di dalamnya ada label pembatas
- * (mis. MENU ADMIN · MASTER DATA · SISTEM). Item disaring lagi menurut hak akses role (matriks di menu Sistem › Role).
+ * (mis. MENU ADMIN). Item disaring lagi menurut hak akses role (matriks di menu Sistem › Role).
  */
-export const NAV: Record<Area, NavGroupDef[]> = {
-  admin: [
+/** Menu Sistem: tampil di menu profil pengguna (klik kartu profil di bawah sidebar), disaring menurut hak akses. */
+export const SYSTEM_MENU: NavDef[] = [
+  { href: "/admin/sistem/pengguna", label: "Pengguna", icon: UserCog, module: "users" },
+  { href: "/admin/sistem/role", label: "Role", icon: ShieldCheck, module: "roles" },
+  { href: "/admin/sistem/log-aktivitas", label: "Log Aktivitas", icon: ScrollText, module: "activity_logs" },
+  { href: "/admin/sistem/pengaturan", label: "Pengaturan", icon: SlidersHorizontal, module: "settings" },
+];
+
+const ADMIN_NAV: NavGroupDef[] = [
     {
       label: "MENU ADMIN",
       items: [
@@ -40,34 +47,33 @@ export const NAV: Record<Area, NavGroupDef[]> = {
             { href: "/admin/master/tenor", label: "Tenor", icon: CalendarRange, module: "tenors" },
           ],
         },
-        {
-          href: "/admin/sistem", label: "Sistem", icon: Settings,
-          children: [
-            { href: "/admin/sistem/pengguna", label: "Pengguna", icon: UserCog, module: "users" },
-            { href: "/admin/sistem/role", label: "Role", icon: ShieldCheck, module: "roles" },
-            { href: "/admin/sistem/log-aktivitas", label: "Log Aktivitas", icon: ScrollText, module: "activity_logs" },
-          ],
-        },
       ],
     },
-  ],
-  owner: [
+];
+
+/** Owner (superadmin): menu Owner di atas, lalu semua menu Admin (Dashboard & Laporan Admin tidak diulang). */
+const OWNER_NAV: NavGroupDef[] = [
     {
-      label: "MENU OWNER",
+      label: "", // tanpa label: menu Owner langsung di atas, lalu MENU ADMIN
       items: [
         { href: "/owner", label: "Dashboard", icon: LayoutDashboard, module: "dashboard", exact: true },
         { href: "/owner/persetujuan", label: "Persetujuan Pinjaman", icon: ClipboardCheck, module: "loan_approvals" },
         { href: "/owner/laporan", label: "Laporan Penagihan", icon: FileBarChart, module: "reports" },
       ],
     },
-  ],
+    ...ADMIN_NAV.map((g) => ({ ...g, items: g.items.filter((i) => i.href !== "/admin" && i.href !== "/admin/laporan") })),
+];
+
+export const NAV: Record<Area, NavGroupDef[]> = {
+  admin: ADMIN_NAV,
+  owner: OWNER_NAV,
   petugas: [
     {
       label: "MENU PETUGAS",
       items: [
-        { href: "/petugas", label: "Tugas Hari Ini", icon: ClipboardList, exact: true },
-        { href: "/petugas/riwayat", label: "Riwayat Setoran", icon: History },
-        { href: "/petugas/profil", label: "Profil", icon: UserRound },
+        { href: "/petugas", label: "Tugas Hari Ini", icon: ClipboardList, module: "my_tasks", exact: true },
+        { href: "/petugas/riwayat", label: "Setoran Kas", icon: History, module: "my_deposits" },
+        { href: "/petugas/profil", label: "Profil", icon: UserRound, module: "my_tasks" },
       ],
     },
   ],

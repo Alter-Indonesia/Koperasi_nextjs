@@ -9,10 +9,13 @@ import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
 import { Table } from "@/components/ui/Table";
 import { useApi, useHash } from "@/lib/api";
 import { angka } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Region = { id: number; name: string; member_count: number; user_count: number };
 
-export default function WilayahPage() {
+function WilayahPage() {
+  const { can } = useSession();
   const { data, error, loading, reload } = useApi<Region[]>("/api/v1/wilayah");
   const hash = useHash();
   const [closed, setClosed] = useState(false);
@@ -21,7 +24,7 @@ export default function WilayahPage() {
       <PageHeader
         title="Wilayah"
         subtitle={data ? `${data.length} wilayah layanan` : "Memuat…"}
-        actions={<Link href="/admin/master/wilayah/baru" className={buttonClass("primary", "lg")}>+ Wilayah Baru</Link>}
+        actions={can("regions", "create") && <Link href="/admin/master/wilayah/baru" className={buttonClass("primary", "lg")}>+ Wilayah Baru</Link>}
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       <Card>
@@ -45,3 +48,5 @@ export default function WilayahPage() {
     </>
   );
 }
+
+export default withFreshState(WilayahPage, { module: "regions" });

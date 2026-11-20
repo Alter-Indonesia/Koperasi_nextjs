@@ -19,9 +19,9 @@ export const GET = handle(async (req: Request) => {
     ) p ON true
     WHERE m.deleted_at IS NULL
       AND ($1::int IS NULL OR m.region_id = $1)
-      AND ($2::text IS NULL OR m.name ILIKE '%' || $2 || '%' OR m.member_number ILIKE '%' || $2 || '%' OR m.phone ILIKE '%' || $2 || '%')`;
+      AND ($2::text IS NULL OR m.name ILIKE '%' || $2 || '%' OR m.member_number ILIKE '%' || $2 || '%' OR m.national_id ILIKE '%' || $2 || '%' OR m.phone ILIKE '%' || $2 || '%')`;
   const [rows, total, stat] = await Promise.all([
-    q(`SELECT m.id, m.member_number, m.name, m.phone, m.joined_on, m.status, r.name AS region_name,
+    q(`SELECT m.id, m.member_number, m.name, m.national_id, m.phone, m.joined_on, m.status, r.name AS region_name,
               m.principal_savings + m.mandatory_savings + m.voluntary_savings AS total_savings,
               p.active_loans, p.remaining_balance, p.arrears_amount,
               CASE WHEN m.status = 'nonaktif' THEN 'Nonaktif'

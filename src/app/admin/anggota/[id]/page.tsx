@@ -11,16 +11,19 @@ import { Table } from "@/components/ui/Table";
 import { api, ApiError, useApi, useHash } from "@/lib/api";
 import { jam, rupiah, tanggal } from "@/lib/format";
 import { FormAnggota, type Initial, type Payload, type Region } from "../FormAnggota";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Detail = Initial & {
   id: number; member_number: string; region_name: string; joined_on: string;
   created_at: string; updated_at: string; created_by_name: string | null; updated_by_name: string | null;
-  loans: { id: number; loan_number: string; principal_amount: number; tenor_months: number; status: string; remaining_balance: number; collectibility: Kolektibilitas }[];
+  loans: { id: number; loan_number: string; principal_amount: number; tenor_duration: number; status: string; remaining_balance: number; collectibility: Kolektibilitas }[];
 };
 
 const time = (t: string) => `${tanggal(t)}, ${jam(t)}`;
 
-export default function DetailAnggotaPage({ params }: PageProps<"/admin/anggota/[id]">) {
+function DetailAnggotaPage({ params }: PageProps<"/admin/anggota/[id]">) {
+  const { can } = useSession();
   const { id } = use(params);
   const router = useRouter();
   const { data: d, error, loading, reload } = useApi<Detail>(`/api/v1/anggota/${id}`);
@@ -71,8 +74,8 @@ export default function DetailAnggotaPage({ params }: PageProps<"/admin/anggota/
         actions={
           d && !edit ? (
             <>
-              <Button variant="outline" size="lg" onClick={() => setEdit(true)}>Edit</Button>
-              <Button variant="danger" size="lg" onClick={() => { setDeleteError(null); setConfirming(true); }}>Hapus</Button>
+              {can("members", "update") && <Button variant="outline" size="lg" onClick={() => setEdit(true)}>Edit</Button>}
+              {can("members", "delete") && <Button variant="danger" size="lg" onClick={() => { setDeleteError(null); setConfirming(true); }}>Hapus</Button>}
             </>
           ) : undefined
         }
@@ -130,3 +133,5 @@ export default function DetailAnggotaPage({ params }: PageProps<"/admin/anggota/
     </>
   );
 }
+
+export default withFreshState(DetailAnggotaPage, { module: "members" });

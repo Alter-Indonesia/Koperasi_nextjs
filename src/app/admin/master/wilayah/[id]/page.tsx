@@ -1,14 +1,16 @@
 "use client";
 import { EntityDetailPage } from "@/components/crud/EntityPages";
 import type { FieldDef } from "@/components/crud/EntityForm";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Region = { id: number; name: string; member_count: number; user_count: number; created_at: string; updated_at: string; created_by_name: string | null; updated_by_name: string | null };
 const fields: FieldDef[] = [{ key: "name", label: "Nama wilayah", type: "text", required: true, wide: true }];
 
-export default function WilayahDetailPage({ params }: PageProps<"/admin/master/wilayah/[id]">) {
+function WilayahDetailPage({ params }: PageProps<"/admin/master/wilayah/[id]">) {
   return (
     <EntityDetailPage<Region>
       params={params}
+      module="regions"
       heading={(r) => r.name}
       subtitle={(r) => `${r.member_count} anggota · ${r.user_count} pengguna`}
       formTitle="Data Wilayah"
@@ -22,3 +24,5 @@ export default function WilayahDetailPage({ params }: PageProps<"/admin/master/w
     />
   );
 }
+
+export default withFreshState(WilayahDetailPage, { module: "regions" });

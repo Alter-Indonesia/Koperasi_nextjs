@@ -9,10 +9,14 @@ import { DetailLink } from "@/components/crud/EntityPages";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
 import { Table } from "@/components/ui/Table";
 import { useApi, useHash } from "@/lib/api";
+import { tenorLabel, type TenorUnit } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
-type Tenor = { id: number; months: number; label: string | null; is_active: boolean; sort_order: number };
+type Tenor = { id: number; duration: number; unit: TenorUnit; interest_rate_percent: number; label: string | null; is_active: boolean; sort_order: number };
 
-export default function TenorPage() {
+function TenorPage() {
+  const { can } = useSession();
   const { data, error, loading, reload } = useApi<Tenor[]>("/api/v1/tenor");
   const hash = useHash();
   const [closed, setClosed] = useState(false);
@@ -20,8 +24,8 @@ export default function TenorPage() {
     <>
       <PageHeader
         title="Tenor"
-        subtitle="Pilihan lama pinjaman yang tersedia di form pinjaman"
-        actions={<Link href="/admin/master/tenor/baru" className={buttonClass("primary", "lg")}>+ Tenor Baru</Link>}
+        subtitle="Pilihan lama pinjaman (bulanan/harian) beserta jasanya, tersedia di form pinjaman"
+        actions={can("tenors", "create") && <Link href="/admin/master/tenor/baru" className={buttonClass("primary", "lg")}>+ Tenor Baru</Link>}
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       <Card>
@@ -33,9 +37,11 @@ export default function TenorPage() {
             rowKey={(r) => r.id}
             empty="Belum ada tenor"
             columns={[
-              { key: "d", header: "Detail", className: "w-[64px]", render: (r) => <DetailLink href={`/admin/master/tenor/${r.id}`} label={`${r.months} bulan`} /> },
-              { key: "m", header: "Lama (bulan)", render: (r) => <b>{r.months}</b> },
-              { key: "l", header: "Label", render: (r) => r.label ?? `${r.months} bulan` },
+              { key: "d", header: "Detail", className: "w-[64px]", render: (r) => <DetailLink href={`/admin/master/tenor/${r.id}`} label={tenorLabel(r.duration, r.unit)} /> },
+              { key: "u", header: "Satuan", render: (r) => <span className="capitalize">{r.unit === "hari" ? "Harian" : "Bulanan"}</span> },
+              { key: "m", header: "Lama", render: (r) => <b>{tenorLabel(r.duration, r.unit)}</b> },
+              { key: "j", header: "Jasa", render: (r) => `${r.interest_rate_percent}% / ${r.unit === "hari" ? "hari" : "bln"}` },
+              { key: "l", header: "Label", render: (r) => r.label ?? tenorLabel(r.duration, r.unit) },
               { key: "o", header: "Urutan", render: (r) => r.sort_order },
               { key: "s", header: "Status", render: (r) => (r.is_active ? <Badge tone="belum-bayar">Aktif</Badge> : <Badge tone="warn-outline">Nonaktif</Badge>) },
             ]}
@@ -46,3 +52,5 @@ export default function TenorPage() {
     </>
   );
 }
+
+export default withFreshState(TenorPage, { module: "tenors" });

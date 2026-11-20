@@ -3,6 +3,7 @@ import { EntityDetailPage } from "@/components/crud/EntityPages";
 import type { FieldDef } from "@/components/crud/EntityForm";
 import { jam, tanggal } from "@/lib/format";
 import { MODULES } from "@/lib/permissions";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Log = {
   id: number; user_name: string | null; action: string; module: string | null; entity_id: number | null; method: string | null; path: string | null;
@@ -22,7 +23,7 @@ const fields: FieldDef[] = [
   { key: "ua", label: "Perangkat (user agent)", type: "textarea" },
 ];
 
-export default function LogDetailPage({ params }: PageProps<"/admin/sistem/log-aktivitas/[id]">) {
+function LogDetailPage({ params }: PageProps<"/admin/sistem/log-aktivitas/[id]">) {
   return (
     <EntityDetailPage<Log & { updated_at?: string }>
       params={params}
@@ -45,3 +46,5 @@ export default function LogDetailPage({ params }: PageProps<"/admin/sistem/log-a
     />
   );
 }
+
+export default withFreshState(LogDetailPage, { module: "activity_logs" });

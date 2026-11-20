@@ -7,37 +7,49 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ChipGroup } from "@/components/ui/Chip";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
+import { SearchInput } from "@/components/ui/Form";
 import { CellStack, Table } from "@/components/ui/Table";
 import { cx } from "@/components/ui/cx";
-import { api, ApiError, qs, useApi } from "@/lib/api";
+import { api, ApiError, qs, useApi, useDebounced } from "@/lib/api";
 import { rupiah, rupiahRingkas, tambahHari, tanggalPanjang } from "@/lib/format";
+import { KartuModal, type Kartu } from "./KartuModal";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
-type Row = { id: number; sequence: number; due_date: string; total_amount: number; status: string; tenor_months: number; loan_number: string; member_name: string; region_name: string; collector_name: string | null; days_overdue: number; reminder_channel: string | null; reminder_status: string | null };
+type Row = { id: number; sequence: number; due_date: string; total_amount: number; status: string; tenor_duration: number; loan_number: string; member_name: string; region_name: string; collector_name: string | null; days_overdue: number; reminder_channel: string | null; reminder_status: string | null };
 type Meta = {
   date: string;
   week: { date: string; count: number }[];
   summary: Record<"overdue_count" | "overdue_amount" | "today_count" | "today_amount" | "tomorrow_count" | "tomorrow_amount" | "h3_count" | "h3_amount", number>;
 };
+type Bucket = "overdue" | "today" | "tomorrow" | "h3";
 const HARI = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 const SALURAN: Record<string, string> = { whatsapp: "WA", sms: "SMS", telepon: "Telepon", surat: "Surat" };
 
-export default function JatuhTempoPage() {
+function JatuhTempoPage() {
+  const { can } = useSession();
   const [tgl, setTgl] = useState<string | null>(null);
   const [status, setStatus] = useState<"all" | "unpaid" | "overdue">("all");
   const [toast, setToast] = useState<{ m: string; t: "ok" | "warn" } | null>(null);
   const [busy, setBusy] = useState(false);
-  const { data, meta, error, loading, reload } = useApi<Row[], Meta>(`/api/v1/jatuh-tempo${qs({ date: tgl, status })}`);
+  const [cari, setCari] = useState("");
+  const [kartu, setKartu] = useState<Kartu | null>(null);
+  const search = useDebounced(cari.trim());
+  const { data, meta, error, loading, reload } = useApi<Row[], Meta>(`/api/v1/jatuh-tempo${qs({ date: tgl, status, q: search })}`);
   const pilih = tgl ?? meta?.date ?? null;
   const r = meta?.summary;
 
-  async function ingatkan(ids?: number[]) {
+  /** kirim pengingat (tanpa ids = massal); true bila berhasil */
+  async function ingatkan(ids?: number[]): Promise<boolean> {
     setBusy(true);
     try {
       const res = await api.post<{ sent: number }>("/api/v1/pengingat/kirim", ids ? { installment_ids: ids } : { all_due: true });
       setToast({ m: `${res.data.sent} pengingat WhatsApp dikirim`, t: "ok" });
       reload();
+      return true;
     } catch (e) {
       setToast({ m: e instanceof ApiError ? e.message : "Gagal mengirim", t: "warn" });
+      return false;
     } finally {
       setBusy(false);
     }
@@ -55,7 +67,7 @@ export default function JatuhTempoPage() {
               <span className="min-w-[150px] text-center text-body-sm font-bold">{pilih ? new Date(pilih + "T00:00:00").toLocaleDateString("id-ID", { month: "long", year: "numeric" }) : "…"}</span>
               <button className="cursor-pointer p-1.5" aria-label="Minggu berikutnya" onClick={() => pilih && setTgl(tambahHari(pilih, 7))}><ChevronRight size={16} strokeWidth={1.5} /></button>
             </div>
-            <Button variant="accent" size="lg" disabled={busy} onClick={() => ingatkan()}>Kirim Pengingat Massal</Button>
+            {can("reminders", "create") && <Button variant="accent" size="lg" disabled={busy} onClick={() => ingatkan()}>Kirim Pengingat Massal</Button>}
           </>
         }
       />
@@ -77,24 +89,35 @@ export default function JatuhTempoPage() {
         </div>
       </Card>
       <div className="mb-6 grid grid-cols-4 gap-6">
-        {[
-          ["Lewat jatuh tempo", r?.overdue_count, r?.overdue_amount, true],
-          ["Jatuh tempo hari ini", r?.today_count, r?.today_amount, false],
-          ["Besok (H-1)", r?.tomorrow_count, r?.tomorrow_amount, false],
-          ["3 hari lagi (H-3)", r?.h3_count, r?.h3_amount, false],
-        ].map(([l, n, v, dk]) => (
-          <div key={String(l)} className={cx("rounded-card px-5 py-4", dk ? "bg-inverse" : "bg-card")}>
-            <div className={cx("text-small font-medium", dk ? "text-fg-inverse-muted" : "text-fg-muted")}>{l as string}</div>
+        {([
+          ["Lewat jatuh tempo", r?.overdue_count, r?.overdue_amount, true, "overdue"],
+          ["Jatuh tempo hari ini", r?.today_count, r?.today_amount, false, "today"],
+          ["Besok (H-1)", r?.tomorrow_count, r?.tomorrow_amount, false, "tomorrow"],
+          ["3 hari lagi (H-3)", r?.h3_count, r?.h3_amount, false, "h3"],
+        ] as [string, number | undefined, number | undefined, boolean, Bucket][]).map(([l, n, v, dk, b]) => (
+          <button
+            key={b}
+            type="button"
+            disabled={n === undefined}
+            onClick={() => setKartu({ bucket: b, label: l, count: n ?? 0, amount: v ?? 0 })}
+            className={cx("cursor-pointer rounded-card px-5 py-4 text-left", dk ? "bg-inverse" : "bg-card hover:bg-line-subtle")}
+          >
+            <div className={cx("text-small font-medium", dk ? "text-fg-inverse-muted" : "text-fg-muted")}>{l}</div>
             <div className="mt-1 flex items-baseline justify-between">
               <span className={cx("text-mobile font-bold", dk ? "text-warn" : "text-fg")}>{n ?? "…"} angsuran</span>
-              <span className={cx("text-body-sm font-bold", dk ? "text-accent" : "text-fg")}>{rupiahRingkas(v as number)}</span>
+              <span className={cx("text-body-sm font-bold", dk ? "text-accent" : "text-fg")}>{rupiahRingkas(v ?? 0)}</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
       <Card
         title={pilih ? `Jatuh tempo s.d. ${tanggalPanjang(pilih)}` : "Jatuh tempo"}
-        action={<ChipGroup value={status} onChange={setStatus} options={[{ value: "all", label: "Semua" }, { value: "unpaid", label: "Belum bayar" }, { value: "overdue", label: "Telat" }]} />}
+        action={
+          <div className="flex items-center gap-3">
+            <SearchInput value={cari} onChange={setCari} placeholder="Cari nama, no. pinjaman, petugas…" className="w-[300px]" />
+            <ChipGroup value={status} onChange={setStatus} options={[{ value: "all", label: "Semua" }, { value: "unpaid", label: "Belum bayar" }, { value: "overdue", label: "Telat" }]} />
+          </div>
+        }
       >
         {loading && !data ? (
           <Skeleton className="h-[420px]" />
@@ -102,17 +125,17 @@ export default function JatuhTempoPage() {
           <Table
             rows={data ?? []}
             rowKey={(x) => x.id}
-            empty="Tidak ada angsuran untuk filter ini"
+            empty={search ? "Tidak ada angsuran yang cocok dengan pencarian" : "Tidak ada angsuran untuk filter ini"}
             columns={[
               { key: "a", header: "Anggota", render: (x) => <CellStack title={x.member_name} sub={x.region_name} /> },
               { key: "n", header: "No. Pinjaman", render: (x) => x.loan_number },
-              { key: "k", header: "Ke-", render: (x) => `${x.sequence}/${x.tenor_months}` },
+              { key: "k", header: "Ke-", render: (x) => `${x.sequence}/${x.tenor_duration}` },
               { key: "r", header: "Nominal", render: (x) => <b>{rupiah(x.total_amount)}</b> },
               { key: "p", header: "Petugas", render: (x) => x.collector_name?.split(" ")[0] ?? "—" },
               { key: "g", header: "Pengingat", render: (x) => x.reminder_channel ? <span className={x.reminder_status === "gagal" ? "text-warn-text" : "text-fg-muted"}>{SALURAN[x.reminder_channel]} · {x.reminder_status}</span> : <span className="text-fg-subtle">belum dikirim</span> },
               { key: "s", header: "Status", render: (x) => x.status !== "belum" ? <Badge tone="sudah-bayar">Sudah bayar</Badge> : x.days_overdue > 0 ? <Badge tone="telat">Telat {x.days_overdue} hari</Badge> : <Badge tone="belum-bayar">Belum bayar</Badge> },
               {
-                key: "x", header: "Aksi", render: (x) => x.status !== "belum" ? <span className="text-fg-subtle">—</span>
+                key: "x", header: "Aksi", render: (x) => x.status !== "belum" || !can("reminders", "create") ? <span className="text-fg-subtle">—</span>
                   : x.days_overdue > 0 ? <Button variant="danger" size="sm" disabled={busy} onClick={() => ingatkan([x.id])}>Tagih Lanjut</Button>
                   : <Button variant="accent" size="sm" disabled={busy} onClick={() => ingatkan([x.id])}>Ingatkan</Button>,
               },
@@ -120,7 +143,10 @@ export default function JatuhTempoPage() {
           />
         )}
       </Card>
+      {kartu && <KartuModal kartu={kartu} date={tgl} onClose={() => setKartu(null)} onRemind={ingatkan} busy={busy} />}
       <Toast message={toast?.m ?? null} tone={toast?.t} onClose={() => setToast(null)} />
     </>
   );
 }
+
+export default withFreshState(JatuhTempoPage, { module: "due_dates" });

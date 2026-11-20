@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Fragment } from "react";
 import { cx } from "./cx";
 
 /**
@@ -7,7 +8,7 @@ import { cx } from "./cx";
  */
 export type Column<T> = {
   key: string;
-  header: string;
+  header: React.ReactNode;
   className?: string;
   align?: "left" | "right";
   render: (row: T, i: number) => React.ReactNode;
@@ -21,6 +22,8 @@ export function Table<T>({
   rowHeight = "h-[58px]",
   onRowClick,
   selectedKey,
+  expandedKey,
+  renderExpanded,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -29,6 +32,9 @@ export function Table<T>({
   rowHeight?: string;
   onRowClick?: (row: T) => void;
   selectedKey?: string | number | null;
+  /** baris yang sedang terbuka: isinya (renderExpanded) tampil tepat di bawah barisnya */
+  expandedKey?: string | number | null;
+  renderExpanded?: (row: T) => React.ReactNode;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -60,26 +66,34 @@ export function Table<T>({
             </tr>
           )}
           {rows.map((r, ri) => (
-            <tr
-              key={rowKey(r)}
-              onClick={onRowClick ? () => onRowClick(r) : undefined}
-              className={cx(onRowClick && "cursor-pointer hover:bg-canvas/60", selectedKey === rowKey(r) && "bg-canvas")}
-            >
-              {columns.map((c) => (
-                <td
-                  key={c.key}
-                  className={cx(
-                    rowHeight,
-                    "px-4 text-fg",
-                    ri < rows.length - 1 && "border-b border-line-subtle",
-                    c.align === "right" ? "text-right" : "text-left",
-                    c.className,
-                  )}
-                >
-                  {c.render(r, ri)}
-                </td>
-              ))}
-            </tr>
+            <Fragment key={rowKey(r)}>
+              <tr
+                onClick={onRowClick ? () => onRowClick(r) : undefined}
+                className={cx(onRowClick && "cursor-pointer hover:bg-canvas/60", selectedKey === rowKey(r) && "bg-canvas")}
+              >
+                {columns.map((c) => (
+                  <td
+                    key={c.key}
+                    className={cx(
+                      rowHeight,
+                      "px-4 text-fg",
+                      ri < rows.length - 1 && !(renderExpanded && expandedKey === rowKey(r)) && "border-b border-line-subtle",
+                      c.align === "right" ? "text-right" : "text-left",
+                      c.className,
+                    )}
+                  >
+                    {c.render(r, ri)}
+                  </td>
+                ))}
+              </tr>
+              {renderExpanded && expandedKey === rowKey(r) && (
+                <tr>
+                  <td colSpan={columns.length} className={cx("bg-canvas/60 px-4 py-4", ri < rows.length - 1 && "border-b border-line-subtle")}>
+                    {renderExpanded(r)}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
         </tbody>
       </table>

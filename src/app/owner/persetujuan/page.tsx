@@ -7,12 +7,13 @@ import { DetailLink } from "@/components/crud/EntityPages";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
 import { CellStack, Table } from "@/components/ui/Table";
 import { useApi, useHash } from "@/lib/api";
-import { angka, rupiah, rupiahRingkas, tanggal } from "@/lib/format";
+import { angka, rupiah, rupiahRingkas, tanggal, tenorLabel, type TenorUnit } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
 
-type Row = { id: number; loan_number: string; member_name: string; member_number: string; region_name: string; principal_amount: number; tenor_months: number; purpose: string | null; collateral: string | null; created_at: string; submitted_by_name: string | null };
+type Row = { id: number; loan_number: string; member_name: string; member_number: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; purpose: string | null; collateral: string | null; created_at: string; submitted_by_name: string | null };
 type Meta = { summary: { pending: number; pending_amount: number; approved_today: number; rejected_today: number } };
 
-export default function PersetujuanPage() {
+function PersetujuanPage() {
   const { data, meta, error, loading, reload } = useApi<Row[], Meta>("/api/v1/persetujuan");
   const hash = useHash();
   const [closed, setClosed] = useState(false);
@@ -40,7 +41,7 @@ export default function PersetujuanPage() {
               { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.member_name} size={32} tone={avatarTone(i)} />} title={r.member_name} sub={`${r.member_number} · ${r.region_name}`} /> },
               { key: "n", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.loan_number}</span> },
               { key: "p", header: "Plafon", render: (r) => <b>{rupiah(r.principal_amount)}</b> },
-              { key: "t", header: "Tenor", render: (r) => `${r.tenor_months} bln` },
+              { key: "t", header: "Tenor", render: (r) => tenorLabel(r.tenor_duration, r.tenor_unit, true) },
               { key: "u", header: "Tujuan", render: (r) => r.purpose ?? "—" },
               { key: "j", header: "Jaminan", render: (r) => r.collateral ?? "—" },
               { key: "g", header: "Diajukan", render: (r) => tanggal(r.created_at) },
@@ -52,3 +53,5 @@ export default function PersetujuanPage() {
     </>
   );
 }
+
+export default withFreshState(PersetujuanPage, { module: "loan_approvals" });

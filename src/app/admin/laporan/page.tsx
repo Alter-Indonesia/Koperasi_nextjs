@@ -9,6 +9,7 @@ import { Table } from "@/components/ui/Table";
 import { cx } from "@/components/ui/cx";
 import { qs, useApi } from "@/lib/api";
 import { angka, persen, rupiahRingkas } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Row = { id: number; name: string; region_name: string; billed: number; paid: number; collected: number; arrears: number };
 type Data = {
@@ -23,7 +24,7 @@ type Meta = { from: string; to: string };
 const METODE: Record<string, [string, string]> = { tunai: ["Tunai", "bg-inverse"], transfer: ["Transfer", "bg-accent"], qris: ["QRIS", "bg-warn"] };
 const AGING = ["bg-accent", "bg-kol-kurang-lancar", "bg-kol-diragukan", "bg-kol-macet"];
 
-export default function LaporanPage() {
+function LaporanPage() {
   const [dari, setDari] = useState("");
   const [sampai, setSampai] = useState("");
   const [wil, setWil] = useState("");
@@ -156,3 +157,5 @@ export default function LaporanPage() {
     </>
   );
 }
+
+export default withFreshState(LaporanPage, { module: "reports" });

@@ -11,18 +11,21 @@ import { Textarea } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
 import { api, ApiError, umumkanPembayaranBerubah, useApi, useHash } from "@/lib/api";
 import { jam, rupiah, tanggalPanjang } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Status = "menunggu" | "terverifikasi" | "ditolak";
-type Item = { id: number; amount: number; method: string; method_note: string | null; paid_at: string; member_name: string; loan_number: string; installment_sequence: number; tenor_months: number; collector_name: string | null; status: Status };
+type Item = { id: number; amount: number; method: string; method_note: string | null; paid_at: string; member_name: string; loan_number: string; installment_sequence: number; tenor_duration: number; collector_name: string | null; status: Status };
 type Meta = { counts: Record<Status, number> };
 type Detail = {
   id: number; amount: number; penalty_amount: number; method: string; method_note: string | null; paid_at: string; proof_image: string | null; location_name: string | null; lat: number | null; lng: number | null;
-  notes: string | null; status: Status; verification_notes: string | null; verified_at: string | null; installment_sequence: number; installment_total: number; tenor_months: number; loan_number: string; member_name: string; member_address: string; region_name: string;
+  notes: string | null; status: Status; verification_notes: string | null; verified_at: string | null; installment_sequence: number; installment_total: number; tenor_duration: number; loan_number: string; member_name: string; member_address: string; region_name: string;
   collector_name: string | null; verifier_name: string | null; balance_before: number; balance_after: number;
 };
 const METODE: Record<string, string> = { tunai: "Tunai", transfer: "Transfer", qris: "QRIS" };
 
-export default function VerifikasiPage() {
+function VerifikasiPage() {
+  const { can } = useSession();
   const [status, setStatus] = useState<Status>("menunggu");
   const [pilih, setPilih] = useState<number | null>(null);
   const [catatan, setCatatan] = useState("");
@@ -107,7 +110,7 @@ export default function VerifikasiPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-mobile font-bold">{d.member_name}</h2>
-                  <p className="mt-1 text-body-sm text-fg-muted">{d.loan_number}  ·  Angsuran ke-{d.installment_sequence} dari {d.tenor_months}  ·  Wil. {d.region_name}</p>
+                  <p className="mt-1 text-body-sm text-fg-muted">{d.loan_number}  ·  Angsuran ke-{d.installment_sequence} dari {d.tenor_duration}  ·  Wil. {d.region_name}</p>
                 </div>
                 {d.status === "menunggu" ? <Badge tone="warn-outline" className="px-3 py-1.5 text-small">Menunggu verifikasi</Badge> : d.status === "terverifikasi" ? <Badge tone="sudah-bayar">Terverifikasi</Badge> : <Badge tone="telat">Ditolak</Badge>}
               </div>
@@ -146,7 +149,7 @@ export default function VerifikasiPage() {
                   </div>
                 </dl>
               </div>
-              {d.status === "menunggu" && (
+              {d.status === "menunggu" && can("payments", "update") && (
                 <>
                   <label className="mt-6 block">
                     <span className="text-body-sm font-bold">Catatan verifikasi</span>
@@ -166,3 +169,5 @@ export default function VerifikasiPage() {
     </>
   );
 }
+
+export default withFreshState(VerifikasiPage, { module: "payments" });

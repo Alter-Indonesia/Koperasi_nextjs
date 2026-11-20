@@ -9,12 +9,15 @@ import { Checkbox, Progress, Select } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
 import { api, ApiError, useApi } from "@/lib/api";
 import { rupiah, tanggalPanjang, tanggalPendek } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Due = { id: number; member_name: string; member_address: string; region_name: string; region_id: number; total_amount: number; due_date: string; loan_number: string };
 type Collector = { id: number; name: string; region_name: string; region_id: number; load: number; max_load: number; tasks: { installment_id: number; member_name: string; total_amount: number }[] };
 type Data = { date: string; unassigned: Due[]; collectors: Collector[] };
 
-export default function PenugasanPage() {
+function PenugasanPage() {
+  const { can } = useSession();
   const { data, error, loading, reload } = useApi<Data>("/api/v1/penugasan");
   const [pilih, setPilih] = useState<number[]>([]);
   const [ke, setKe] = useState<string>("");
@@ -58,7 +61,7 @@ export default function PenugasanPage() {
       <PageHeader
         title="Penugasan Petugas"
         subtitle={data ? `Bagi tagihan lapangan untuk ${tanggalPanjang(data.date)}` : "Memuat…"}
-        actions={<Button variant="accent" size="lg" disabled={busy || !data?.unassigned.length} onClick={otomatis}>Bagi Otomatis per Wilayah</Button>}
+        actions={can("assignments", "create") && <Button variant="accent" size="lg" disabled={busy || !data?.unassigned.length} onClick={otomatis}>Bagi Otomatis per Wilayah</Button>}
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Skeleton className="h-[800px]" />}
@@ -128,7 +131,7 @@ export default function PenugasanPage() {
                     {p.tasks.length === 0 && <li className="py-3 text-small text-fg-subtle">Belum ada tugas</li>}
                   </ul>
                   {p.tasks.length > 4 && <div className="mt-2 text-small font-medium text-fg-subtle">+ {p.tasks.length - 4} anggota lainnya</div>}
-                  <Button variant="outline" className="mt-4 w-full" disabled={busy || !pilih.length} onClick={() => tugaskan(p.id)}>Tugaskan di sini</Button>
+                  {can("assignments", "create") && <Button variant="outline" className="mt-4 w-full" disabled={busy || !pilih.length} onClick={() => tugaskan(p.id)}>Tugaskan di sini</Button>}
                 </section>
               );
             })}
@@ -139,3 +142,5 @@ export default function PenugasanPage() {
     </>
   );
 }
+
+export default withFreshState(PenugasanPage, { module: "assignments" });

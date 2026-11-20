@@ -2,11 +2,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { PEMBAYARAN_BERUBAH, useApi } from "@/lib/api";
-import { type Area } from "@/lib/permissions";
+import { canEnterArea, type Area } from "@/lib/permissions";
 import { SessionProvider, useSession } from "@/lib/session";
 import { AppShell } from "./AppShell";
 import type { NavItem } from "./Sidebar";
-import { NAV, type NavDef } from "./nav";
+import { NAV, SYSTEM_MENU, type NavDef } from "./nav";
 
 type Counts = { counts: { menunggu: number } };
 
@@ -15,9 +15,9 @@ function Shell({ area, children }: { area: Area; children: React.ReactNode }) {
   const router = useRouter();
   // pengguna dengan role di area lain dialihkan ke areanya sendiri (otorisasi sebenarnya tetap di API)
   useEffect(() => {
-    if (userArea && userArea !== area) router.replace(`/${userArea}`);
+    if (userArea && !canEnterArea(userArea, area)) router.replace(`/${userArea}`);
   }, [userArea, area, router]);
-  const allowed = userArea === area;
+  const allowed = canEnterArea(userArea, area);
   const showBadge = allowed && can("payments", "view");
   const { meta, reload } = useApi<unknown, Counts>(showBadge ? "/api/v1/pembayaran?limit=1" : null);
   // halaman lain memicu event ini setelah verifikasi agar badge ikut diperbarui
@@ -34,12 +34,14 @@ function Shell({ area, children }: { area: Area; children: React.ReactNode }) {
     if (i.module && !can(i.module, i.action ?? "view")) return null;
     return { href: i.href, label: i.label, icon: i.icon, exact: i.exact, badge: i.badge === "payments" ? meta?.counts.menunggu : undefined };
   };
-  const groups = NAV[area]
+  const groups = NAV[userArea ?? area] // menu mengikuti area role pengguna (Owner melihat menu Owner + semua menu Admin)
     .map((g) => ({ label: g.label, items: g.items.map(toItem).filter((i): i is NavItem => !!i) }))
     .filter((g) => g.items.length > 0);
 
+  const profileMenu = SYSTEM_MENU.map(toItem).filter((i): i is NavItem => !!i); // Sistem (Pengguna, Role, Log, Pengaturan) ada di menu profil
+
   return (
-    <AppShell groups={groups} user={user ? { name: user.name, role: roleName ?? "" } : null} onLogout={logout}>
+    <AppShell groups={groups} profileMenu={profileMenu} user={user ? { name: user.name, role: roleName ?? "", email: user.email } : null} onLogout={logout}>
       {allowed ? children : null}
     </AppShell>
   );

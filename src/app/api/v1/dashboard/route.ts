@@ -28,7 +28,7 @@ export const GET = handle(async () => {
            (SELECT COUNT(*) FROM payments WHERE verified_at::date = CURRENT_DATE AND status = 'terverifikasi') AS paid_off,
            (SELECT COUNT(*) FROM v_loans WHERE status = 'aktif' AND arrears_amount > 0) AS follow_up`),
     q(`SELECT p.id, p.amount + p.penalty_amount AS amount, p.method, p.method_note, p.paid_at,
-              i.sequence AS installment_sequence, l.tenor_months, l.loan_number, m.name AS member_name, c.name AS collector_name
+              i.sequence AS installment_sequence, l.tenor_duration, l.tenor_unit, l.loan_number, m.name AS member_name, c.name AS collector_name
        FROM payments p
        JOIN installments i ON i.id = p.installment_id
        JOIN loans l ON l.id = i.loan_id

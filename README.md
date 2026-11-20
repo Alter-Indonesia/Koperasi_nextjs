@@ -23,7 +23,7 @@ Buka http://localhost:3100/login. Semua pengguna memakai password yang sama, yai
 |---|---|---|
 | Admin | rina@koperasiku.id | /admin |
 | Owner | owner@koperasiku.id | /owner (dashboard, persetujuan pinjaman > Rp 20 jt, laporan) |
-| Petugas | dedi@ · yanto@ · asep@ · lilis@koperasiku.id | /petugas (kerangka menu; aplikasi mobile menyusul) |
+| Petugas | dedi@ · yanto@ · asep@ · lilis@koperasiku.id | /petugas (Tugas Hari Ini, Setoran Kas, Profil) |
 
 Sidebar tiap role berlabel area (MENU ADMIN · MASTER DATA · SISTEM, MENU OWNER, MENU PETUGAS, MENU ANGGOTA) dan disaring menurut hak akses role.
 Hak akses diatur di **Sistem › Role** (matriks modul × aksi).
@@ -61,7 +61,7 @@ src/components/layout/    POLA LAYOUT: AppShell (sidebar 240 + konten padding 32
 src/components/crud/      form halaman generik (tambah / lihat / ubah / hapus) untuk master data & sistem
 src/app/admin/*           Admin: anggota, pinjaman, jatuh tempo, verifikasi, penugasan, pengingat, laporan · master/(wilayah, tenor) · sistem/(pengguna, role, log-aktivitas)
 src/app/owner/*           Owner: dashboard, persetujuan pinjaman, laporan
-src/app/petugas/*, anggota/*   kerangka menu (aplikasi mobile menyusul)
+src/app/petugas/*   Tugas Hari Ini, Setoran Kas (/riwayat), Profil · src/app/anggota/*   kerangka menu (aplikasi mobile menyusul)
 src/app/api/v1/*          REST API (route handlers)
 src/lib/                  db (pg Pool), http (format respons & error), api (klien fetch/useApi), format (Rupiah, tanggal), openapi (spec dokumentasi API)
 ```
@@ -143,15 +143,20 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | PUT | `/pengingat/template/:kode` | ubah isi template |
 | GET | `/laporan/penagihan` | rekap per petugas, metode, harian, umur tunggakan, penagihan lanjutan (`from`, `to`, `region_id`) |
 | GET | `/petugas` | petugas lapangan aktif (referensi) |
+| GET | `/petugas/tugas` | **Petugas** — tagihan yang ditugaskan kepada saya hari ini (modul `my_tasks`) |
+| GET, POST | `/petugas/setoran` | **Petugas** — uang tunai di tangan, rincian hari ini, riwayat · setor semua tunai ke kasir (modul `my_deposits`) |
+| GET | `/petugas/profil` | **Petugas** — profil + capaian bulan ini terhadap target (modul `my_tasks`) |
 | GET, POST | `/wilayah` | **Master Data** — daftar wilayah · tambah |
 | GET, PATCH, DELETE | `/wilayah/{id}` | detail · ubah · soft delete (ditolak bila masih dipakai anggota/pengguna) |
-| GET, POST | `/tenor` | **Master Data** — pilihan lama pinjaman (`?active=1` = hanya aktif) · tambah. Form pinjaman memvalidasi tenor ke tabel ini |
+| GET, PATCH | `/pengaturan` | **Sistem › Pengaturan** — daftar pengaturan (tabel `settings`, key/value dinamis) · ubah beberapa sekaligus `{ values: { key: nilai } }` |
+| GET | `/pinjaman/pengaturan` | perlakuan biaya admin yang berlaku (`admin_fee_mode`: `potong`/`tambah`) untuk form pinjaman |
+| GET, POST | `/tenor` | **Master Data** — pilihan tenor **bulanan/harian** (`unit`), `duration`, dan jasa `interest_rate_percent` (% flat per bulan/hari) (`?active=1` = hanya aktif) · tambah. `POST /pinjaman` memakai `tenor_id` dari tabel ini |
 | GET, PATCH, DELETE | `/tenor/{id}` | detail · ubah · soft delete |
 | GET, POST | `/pengguna` | **Sistem** — daftar (`q`, `role`, `status`, `page`) · tambah (password awal bcrypt) |
 | GET, PATCH, DELETE | `/pengguna/{id}` | detail · ubah (`password` memutus sesi) · soft delete (akun sendiri tidak bisa dihapus) |
 | GET, POST | `/role` | **Sistem** — daftar role · tambah role kustom |
 | GET, PATCH, DELETE | `/role/{id}` | detail + hak akses · ubah · soft delete (role bawaan / yang dipakai ditolak) |
-| PUT | `/role/{id}/permissions` | ganti matriks hak akses role (role `admin` dikunci) |
+| PUT | `/role/{id}/permissions` | ganti matriks hak akses role (role `owner` = superadmin dikunci) |
 | GET | `/log-aktivitas`, `/log-aktivitas/{id}` | **Sistem** — log login & perubahan data (hanya baca; filter `q`, `module`, `action`, `from`, `to`) |
 | GET | `/persetujuan`, `/persetujuan/{id}` | pengajuan pinjaman > Rp 20 jt yang menunggu Owner |
 | POST | `/persetujuan/{id}` | `{ action: "approve" \| "reject", notes }` — keputusan Owner (jadwal angsuran dibuat saat disetujui) |

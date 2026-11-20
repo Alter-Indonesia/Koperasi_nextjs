@@ -7,16 +7,18 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
 import { Table } from "@/components/ui/Table";
 import { useApi, useHash } from "@/lib/api";
-import { isoHariIni, rupiah, tanggal } from "@/lib/format";
+import { type AdminFeeMode, loanAmounts } from "@/lib/loan-calc";
+import { isoHariIni, rupiah, tanggal, tenorLabel, type TenorUnit } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Detail = {
-  id: number; loan_number: string; member_id: number; member_name: string; member_number: string; region_name: string; principal_amount: number; tenor_months: number; installment_amount: number;
+  id: number; loan_number: string; member_id: number; member_name: string; member_number: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; admin_fee: number; admin_fee_mode: AdminFeeMode; installment_amount: number;
   interest_rate_percent: number; remaining_balance: number; arrears_amount: number; status: "pengajuan" | "aktif" | "lunas" | "ditolak"; collectibility: Kolektibilitas;
   purpose: string | null; collateral: string | null; disbursed_on: string | null;
   installments: { id: number; sequence: number; due_date: string; total_amount: number; status: "belum" | "menunggu_verifikasi" | "lunas"; paid_at: string | null }[];
 };
 
-export default function DetailPinjamanPage({ params }: PageProps<"/admin/pinjaman/[id]">) {
+function DetailPinjamanPage({ params }: PageProps<"/admin/pinjaman/[id]">) {
   const { id } = use(params);
   const { data: d, error, loading, reload } = useApi<Detail>(`/api/v1/pinjaman/${id}`);
   const hash = useHash();
@@ -40,7 +42,8 @@ export default function DetailPinjamanPage({ params }: PageProps<"/admin/pinjama
           <Card title="Ringkasan">
             <div className="grid grid-cols-4 gap-6">
               {([
-                ["Plafon", rupiah(d.principal_amount)], ["Tenor", `${d.tenor_months} bulan`], ["Angsuran / bulan", rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / bln flat`],
+                ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / ${d.tenor_unit === "hari" ? "hari" : "bln"} flat`],
+                ["Biaya admin", `${rupiah(d.admin_fee)} (${d.admin_fee_mode === "tambah" ? "penambah" : "pengurang"})`], ["Pokok ditagih", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).financed)], ["Dana diterima", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).received)],
                 ["Sisa pinjaman", rupiah(d.remaining_balance)], ["Tunggakan", rupiah(d.arrears_amount)], ["Tanggal cair", d.disbursed_on ? tanggal(d.disbursed_on) : "—"], ["Status", d.status],
                 ["Tujuan", d.purpose ?? "—"], ["Jaminan", d.collateral ?? "—"],
               ] as const).map(([l, v]) => (
@@ -71,3 +74,5 @@ export default function DetailPinjamanPage({ params }: PageProps<"/admin/pinjama
     </>
   );
 }
+
+export default withFreshState(DetailPinjamanPage, { module: "loans" });

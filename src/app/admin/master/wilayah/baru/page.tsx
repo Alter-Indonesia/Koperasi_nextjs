@@ -1,10 +1,11 @@
 "use client";
 import { EntityNewPage } from "@/components/crud/EntityPages";
 import type { FieldDef } from "@/components/crud/EntityForm";
+import { withFreshState } from "@/components/layout/FreshState";
 
 const fields: FieldDef[] = [{ key: "name", label: "Nama wilayah", type: "text", required: true, placeholder: "Cibeunying", wide: true }];
 
-export default function WilayahBaruPage() {
+function WilayahBaruPage() {
   return (
     <EntityNewPage
       heading="Wilayah Baru"
@@ -19,3 +20,5 @@ export default function WilayahBaruPage() {
     />
   );
 }
+
+export default withFreshState(WilayahBaruPage, { module: "regions", action: "create" });

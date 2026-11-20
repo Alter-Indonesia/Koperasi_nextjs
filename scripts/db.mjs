@@ -90,7 +90,14 @@ const TENOR = [6, 10, 12, 12, 12, 18];
 const JALAN = ['Jl. Cikutra', 'Jl. Dipatiukur', 'Jl. Sukajadi', 'Jl. Jakarta', 'Gg. Sukaluyu II', 'Jl. Phh. Mustofa', 'Jl. Pahlawan', 'Jl. Tubagus Ismail', 'Jl. Cigadung Raya', 'Jl. Sadang Serang', 'Jl. Purwakarta', 'Jl. Sukagalih'];
 
 async function seed(c) {
-  await c.query('TRUNCATE sessions, reminder_logs, reminder_templates, reminder_rules, reminder_channels, assignments, payments, installments, loans, members, users, regions RESTART IDENTITY CASCADE');
+  // Kosongkan data contoh TANPA "CASCADE": semua tabel punya kolom audit (created_by, ...) yang menunjuk ke users, jadi CASCADE
+  // ikut mengosongkan roles, role_permissions, tenors, dan settings. Tabel konfigurasi itu dipertahankan; yang dikosongkan hanya data contoh.
+  for (const t of ['roles', 'tenors', 'settings']) await c.query(`UPDATE ${t} SET created_by = NULL, updated_by = NULL, deleted_by = NULL`);
+  await c.query('TRUNCATE sessions, activity_logs, reminder_logs, reminder_templates, reminder_rules, reminder_channels, assignments, cash_deposits, payments, installments, loans, members RESTART IDENTITY');
+  for (const t of ['users', 'regions']) {
+    await c.query(`DELETE FROM ${t}`);
+    await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), 1, false)`);
+  }
   const wil = [];
   for (const n of WILAYAH) wil.push((await c.query('INSERT INTO regions (name) VALUES ($1) RETURNING id', [n])).rows[0].id);
   const ins = async (sql, v) => (await c.query(sql, v)).rows[0]?.id;
@@ -121,7 +128,7 @@ async function seed(c) {
     const paid = Math.min(tenor - 1, Math.max(1, Math.floor(rnd() * (tenor - 1)) + 1));
     const dueCurrent = addDays(today, dueOffset);
     const cair = addMonths(dueCurrent, -(paid + 1));
-    const pjId = await ins(`INSERT INTO loans (loan_number, member_id, principal_amount, tenor_months, interest_rate_percent, installment_amount, purpose, disbursed_on, status, submitted_by)
+    const pjId = await ins(`INSERT INTO loans (loan_number, member_id, principal_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, disbursed_on, status, submitted_by)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'aktif',$9) RETURNING id`, [`PJ-${String(cair.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, jasa, total, pick(['Modal usaha', 'Renovasi rumah', 'Biaya sekolah', 'Modal warung', 'Pembelian motor usaha']), iso(cair), adminId]);
     const petugasId = pet[w];
     for (let k = 1; k <= tenor; k++) {
@@ -158,11 +165,21 @@ async function seed(c) {
       }
     }
   }
+  // setoran kas petugas: tunai 1-3 hari lalu disetor harian (cocok); tunai lebih lama dianggap sudah disetor; hari ini masih di tangan
+  for (const pid of pet) {
+    for (const back of [1, 2, 3, 4]) {
+      const cond = back === 4 ? 'paid_at < CURRENT_DATE - 3' : `paid_at::date = CURRENT_DATE - ${back}`;
+      const r = (await c.query(`SELECT array_agg(id) ids, COALESCE(sum(amount), 0) total FROM payments WHERE collector_id = $1 AND method = 'tunai' AND status <> 'ditolak' AND deposit_id IS NULL AND ${cond}`, [pid])).rows[0];
+      if (!r.ids) continue;
+      const dep = await ins(`INSERT INTO cash_deposits (collector_id, deposited_on, amount, payment_count, status, received_by) VALUES ($1, CURRENT_DATE - $2::int, $3, $4, 'cocok', $5) RETURNING id`, [pid, back, r.total, r.ids.length, adminId]);
+      await c.query('UPDATE payments SET deposit_id = $1 WHERE id = ANY($2::int[])', [dep, r.ids]);
+    }
+  }
   // pengajuan menunggu persetujuan owner (> Rp 20 jt)
   for (const [nama, w, plafon, tenor, tujuan, jaminan] of [['Rudi Setiawan', 0, 25_000_000, 24, 'Modal usaha warung', 'BPKB motor (2019)'], ['Euis Maryani', 1, 40_000_000, 36, 'Renovasi rumah', 'Sertifikat rumah'], ['Taufik Hidayat', 2, 22_000_000, 18, 'Pembelian motor usaha', 'BPKB motor (2021)']]) {
     const agId = await ins(`INSERT INTO members (member_number, name, phone, address, region_id, joined_on, principal_savings, mandatory_savings) VALUES ($1,$2,'0812-5550-0101',$3,$4,$5,100000,1500000) RETURNING id`, [`AG-0${noAg += 7}`, nama, `Jl. Contoh, Wil. ${WILAYAH[w]}`, wil[w], iso(addMonths(today, -40))]);
     const ang = Math.round(plafon / tenor) + Math.round(plafon * 0.015);
-    await c.query(`INSERT INTO loans (loan_number, member_id, principal_amount, tenor_months, interest_rate_percent, installment_amount, purpose, collateral, status, submitted_by) VALUES ($1,$2,$3,$4,1.5,$5,$6,$7,'pengajuan',$8)`, [`PJ-${String(today.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, ang, tujuan, jaminan, adminId]);
+    await c.query(`INSERT INTO loans (loan_number, member_id, principal_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, collateral, status, submitted_by) VALUES ($1,$2,$3,$4,1.5,$5,$6,$7,'pengajuan',$8)`, [`PJ-${String(today.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, ang, tujuan, jaminan, adminId]);
   }
   const n = (await c.query('SELECT (SELECT count(*) FROM members) a, (SELECT count(*) FROM loans) p, (SELECT count(*) FROM installments) s, (SELECT count(*) FROM payments WHERE status = $1) m', ['menunggu'])).rows[0];
   console.log(`data contoh: ${n.a} anggota, ${n.p} pinjaman, ${n.s} angsuran, ${n.m} pembayaran menunggu verifikasi`);

@@ -10,10 +10,13 @@ import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
 import { Table } from "@/components/ui/Table";
 import { useApi, useHash } from "@/lib/api";
 import { AREA_LABEL, type Area } from "@/lib/permissions";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Role = { id: number; code: string; name: string; description: string | null; area: Area; is_system: boolean; user_count: number; module_count: number };
 
-export default function RolePage() {
+function RolePage() {
+  const { can } = useSession();
   const { data, error, loading, reload } = useApi<Role[]>("/api/v1/role");
   const hash = useHash();
   const [closed, setClosed] = useState(false);
@@ -22,7 +25,7 @@ export default function RolePage() {
       <PageHeader
         title="Role"
         subtitle="Role menentukan area menu dan hak akses tiap pengguna"
-        actions={<Link href="/admin/sistem/role/baru" className={buttonClass("primary", "lg")}>+ Role Baru</Link>}
+        actions={can("roles", "create") && <Link href="/admin/sistem/role/baru" className={buttonClass("primary", "lg")}>+ Role Baru</Link>}
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       <Card>
@@ -49,3 +52,5 @@ export default function RolePage() {
     </>
   );
 }
+
+export default withFreshState(RolePage, { module: "roles" });

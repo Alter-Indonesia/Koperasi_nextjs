@@ -13,13 +13,16 @@ import { SearchInput } from "@/components/ui/Form";
 import { CellStack, Pager, Table } from "@/components/ui/Table";
 import { qs, useApi, useDebounced, useHash } from "@/lib/api";
 import { angka, bulanTahun, rupiahRingkas } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Member = { id: number; member_number: string; name: string; phone: string; joined_on: string; region_name: string; total_savings: number; active_loans: number; remaining_balance: number; status_label: "Aktif" | "Menunggak" | "Baru" | "Nonaktif" };
 type Meta = { page: number; limit: number; total: number; stats: { total: number; new_this_month: number; borrowing: number; in_arrears: number; total_savings: number } };
 type Region = { id: number; name: string };
 const STATUS_TONE: Record<Member["status_label"], BadgeTone> = { Aktif: "belum-bayar", Menunggak: "telat", Baru: "dpk", Nonaktif: "warn-outline" };
 
-export default function AnggotaPage() {
+function AnggotaPage() {
+  const { can } = useSession();
   const [wil, setWil] = useState<number | null>(null);
   const [cari, setCari] = useState("");
   const [page, setPage] = useState(1);
@@ -36,7 +39,7 @@ export default function AnggotaPage() {
       <PageHeader
         title="Data Anggota"
         subtitle={s ? `${angka(s.total)} anggota terdaftar  ·  ${regions?.length ?? 0} wilayah layanan` : "Memuat…"}
-        actions={<Link href="/admin/anggota/baru" className={buttonClass("primary", "lg")}>+ Anggota Baru</Link>}
+        actions={can("members", "create") && <Link href="/admin/anggota/baru" className={buttonClass("primary", "lg")}>+ Anggota Baru</Link>}
       />
       <div className="mb-6 grid grid-cols-3 gap-6">
         <StatCard tone="accent" label="Total Anggota" value={s ? angka(s.total) : "…"} note={s ? `▲ ${s.new_this_month} anggota baru bulan ini` : undefined} />
@@ -83,3 +86,5 @@ export default function AnggotaPage() {
     </>
   );
 }
+
+export default withFreshState(AnggotaPage, { module: "members" });

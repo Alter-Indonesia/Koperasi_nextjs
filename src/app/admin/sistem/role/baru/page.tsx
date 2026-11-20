@@ -2,6 +2,7 @@
 import { EntityNewPage } from "@/components/crud/EntityPages";
 import type { FieldDef } from "@/components/crud/EntityForm";
 import { AREAS, AREA_LABEL } from "@/lib/permissions";
+import { withFreshState } from "@/components/layout/FreshState";
 
 const fields: FieldDef[] = [
   { key: "name", label: "Nama role", type: "text", required: true, placeholder: "Supervisor Penagihan" },
@@ -10,7 +11,7 @@ const fields: FieldDef[] = [
   { key: "description", label: "Deskripsi", type: "textarea", placeholder: "Opsional" },
 ];
 
-export default function RoleBaruPage() {
+function RoleBaruPage() {
   return (
     <EntityNewPage
       heading="Role Baru"
@@ -25,3 +26,5 @@ export default function RoleBaruPage() {
     />
   );
 }
+
+export default withFreshState(RoleBaruPage, { module: "roles", action: "create" });

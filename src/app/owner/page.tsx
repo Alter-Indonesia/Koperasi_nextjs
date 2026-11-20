@@ -7,8 +7,9 @@ import { ErrorBox, Skeleton } from "@/components/ui/Feedback";
 import { Progress } from "@/components/ui/Form";
 import { CellStack, Table } from "@/components/ui/Table";
 import { useApi } from "@/lib/api";
-import { angka, persen, rupiah, rupiahRingkas, tanggalPanjang } from "@/lib/format";
+import { angka, persen, rupiah, rupiahRingkas, tanggalPanjang, tenorLabel, type TenorUnit } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Dashboard = {
   date: string;
@@ -17,10 +18,10 @@ type Dashboard = {
   arrears: { amount: number; members: number; npl: number | null };
   collectors: { id: number; name: string; region_name: string; tasks: number; completed: number; collected: number }[];
 };
-type Approval = { id: number; loan_number: string; member_name: string; region_name: string; principal_amount: number; tenor_months: number; purpose: string | null };
+type Approval = { id: number; loan_number: string; member_name: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; purpose: string | null };
 type ApprovalMeta = { summary: { pending: number; pending_amount: number } };
 
-export default function OwnerDashboard() {
+function OwnerDashboard() {
   const { can } = useSession();
   const dash = useApi<Dashboard>(can("dashboard") ? "/api/v1/dashboard" : null);
   const appr = useApi<Approval[], ApprovalMeta>(can("loan_approvals") ? "/api/v1/persetujuan" : null);
@@ -49,7 +50,7 @@ export default function OwnerDashboard() {
                 columns={[
                   { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.member_name} size={32} tone={avatarTone(i)} />} title={r.member_name} sub={`${r.loan_number} · ${r.region_name}`} /> },
                   { key: "p", header: "Plafon", render: (r) => <b>{rupiah(r.principal_amount)}</b> },
-                  { key: "t", header: "Tenor", render: (r) => `${r.tenor_months} bln` },
+                  { key: "t", header: "Tenor", render: (r) => tenorLabel(r.tenor_duration, r.tenor_unit, true) },
                   { key: "x", header: "", render: (r) => <Link href={`/owner/persetujuan/${r.id}`} className="font-bold text-warn-text hover:underline">Tinjau →</Link> },
                 ]}
               />
@@ -81,3 +82,5 @@ export default function OwnerDashboard() {
     </>
   );
 }
+
+export default withFreshState(OwnerDashboard, { module: "dashboard" });

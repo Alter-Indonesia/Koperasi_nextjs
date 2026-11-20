@@ -3,13 +3,14 @@ import { EntityDetailPage } from "@/components/crud/EntityPages";
 import { useApi } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { userFields, userPayload } from "../user-fields";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type User = {
   id: number; code: string | null; name: string; email: string; phone: string | null; role: string; role_name: string; region_id: number | null; region_name: string | null;
   status: "aktif" | "nonaktif"; last_login_at: string | null; created_at: string; updated_at: string; created_by_name: string | null; updated_by_name: string | null;
 };
 
-export default function PenggunaDetailPage({ params }: PageProps<"/admin/sistem/pengguna/[id]">) {
+function PenggunaDetailPage({ params }: PageProps<"/admin/sistem/pengguna/[id]">) {
   const { user: me } = useSession();
   const roles = useApi<{ code: string; name: string }[]>("/api/v1/role");
   const regions = useApi<{ id: number; name: string }[]>("/api/v1/wilayah");
@@ -17,6 +18,7 @@ export default function PenggunaDetailPage({ params }: PageProps<"/admin/sistem/
   return (
     <EntityDetailPage<User>
       params={params}
+      module="users"
       heading={(r) => r.name}
       subtitle={(r) => `${r.email} · ${r.role_name}${r.region_name ? ` · ${r.region_name}` : ""}`}
       formTitle="Data Pengguna"
@@ -32,3 +34,5 @@ export default function PenggunaDetailPage({ params }: PageProps<"/admin/sistem/
     />
   );
 }
+
+export default withFreshState(PenggunaDetailPage, { module: "users" });

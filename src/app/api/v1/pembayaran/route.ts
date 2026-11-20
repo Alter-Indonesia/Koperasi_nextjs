@@ -8,7 +8,7 @@ export const GET = handle(async (req: Request) => {
   const limit = intParam(sp.get("limit"), 50, 1, 200);
   const [rows, counts] = await Promise.all([
     q(`SELECT p.id, p.amount + p.penalty_amount AS amount, p.method, p.method_note, p.paid_at, p.status,
-              m.name AS member_name, l.loan_number, i.sequence AS installment_sequence, l.tenor_months, c.name AS collector_name
+              m.name AS member_name, l.loan_number, i.sequence AS installment_sequence, l.tenor_duration, l.tenor_unit, c.name AS collector_name
        FROM payments p
        JOIN installments i ON i.id = p.installment_id
        JOIN loans l ON l.id = i.loan_id

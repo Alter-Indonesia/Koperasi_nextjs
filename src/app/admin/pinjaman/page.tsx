@@ -11,16 +11,19 @@ import { ErrorBox, Skeleton } from "@/components/ui/Feedback";
 import { SearchInput } from "@/components/ui/Form";
 import { CellStack, Pager, Table } from "@/components/ui/Table";
 import { qs, useApi, useDebounced } from "@/lib/api";
-import { angka, rupiah, rupiahRingkas, tanggalPendek } from "@/lib/format";
+import { angka, rupiah, rupiahRingkas, tanggalPendek, tenorLabel, type TenorUnit } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Loan = {
-  id: number; loan_number: string; member_name: string; region_name: string; principal_amount: number; tenor_months: number; installment_amount: number;
+  id: number; loan_number: string; member_name: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; installment_amount: number;
   next_due_date: string | null; remaining_balance: number; paid_installments: number; days_overdue: number; collectibility: Kolektibilitas;
 };
 type Meta = { page: number; limit: number; total: number; outstanding: number; total_active: number; collectibility: Record<Kolektibilitas, number> };
 const KOL: Kolektibilitas[] = ["Lancar", "DPK", "Kurang Lancar", "Diragukan", "Macet"];
 
-export default function PinjamanPage() {
+function PinjamanPage() {
+  const { can } = useSession();
   const [kol, setKol] = useState<Kolektibilitas | null>(null);
   const [cari, setCari] = useState("");
   const [page, setPage] = useState(1);
@@ -35,7 +38,7 @@ export default function PinjamanPage() {
         actions={
           <>
             <Button variant="outline" size="lg" onClick={() => window.open(`/api/v1/pinjaman${qs({ collectibility: kol, q, limit: 100 })}`, "_blank")}>Ekspor JSON</Button>
-            <Link href="/admin/pinjaman/baru" className={buttonClass("primary", "lg")}>+ Pinjaman Baru</Link>
+            {can("loans", "create") && <Link href="/admin/pinjaman/baru" className={buttonClass("primary", "lg")}>+ Pinjaman Baru</Link>}
           </>
         }
       />
@@ -62,7 +65,7 @@ export default function PinjamanPage() {
                 { key: "no", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.loan_number}</span> },
                 { key: "ag", header: "Anggota", render: (r) => <CellStack title={r.member_name} sub={r.region_name} /> },
                 { key: "pl", header: "Plafon", render: (r) => rupiah(r.principal_amount) },
-                { key: "tn", header: "Tenor", render: (r) => `${r.tenor_months} bln` },
+                { key: "tn", header: "Tenor", render: (r) => tenorLabel(r.tenor_duration, r.tenor_unit, true) },
                 { key: "an", header: "Angsuran/bln", render: (r) => rupiah(r.installment_amount) },
                 { key: "jt", header: "Jatuh Tempo", render: (r) => (r.next_due_date ? <span className={r.days_overdue > 0 ? "font-bold text-warn-text" : ""}>{tanggalPendek(r.next_due_date)}</span> : "—") },
                 { key: "si", header: "Sisa Pinjaman", render: (r) => <b>{rupiah(r.remaining_balance)}</b> },
@@ -77,3 +80,5 @@ export default function PinjamanPage() {
     </>
   );
 }
+
+export default withFreshState(PinjamanPage, { module: "loans" });

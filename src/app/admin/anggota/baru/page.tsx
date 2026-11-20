@@ -2,17 +2,18 @@
 import { IdCard, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { ErrorBox, Modal, Skeleton } from "@/components/ui/Feedback";
 import { api, ApiError, useApi } from "@/lib/api";
 import { FormAnggota, ktpInfo, type Payload, type Prefill, type Region } from "../FormAnggota";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Hasil = { national_id: string | null; biodata: Prefill["biodata"] };
 
 /** Langkah 1: unggah KTP. Langkah 2: form terisi dari KTP (NIK mengikuti KTP). */
-function AnggotaBaru() {
+function AnggotaBaruPage() {
   const router = useRouter();
   const { data: regions, error, reload } = useApi<Region[]>("/api/v1/wilayah");
   const [prefill, setPrefill] = useState<Prefill | null>(null);
@@ -80,12 +81,4 @@ function AnggotaBaru() {
   );
 }
 
-/**
- * Next 16 (Cache Components) menyimpan state halaman yang ditinggalkan. Agar "Anggota Baru" selalu mulai bersih,
- * setiap kali halaman disembunyikan/dilepas, key dinaikkan sehingga seluruh form dibuat ulang.
- */
-export default function AnggotaBaruPage() {
-  const [run, setRun] = useState(0);
-  useEffect(() => () => setRun((n) => n + 1), []);
-  return <AnggotaBaru key={run} />;
-}
+export default withFreshState(AnggotaBaruPage, { module: "members", action: "create" });

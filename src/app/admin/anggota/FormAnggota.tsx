@@ -189,13 +189,16 @@ export function FormAnggota({
         </Card>
 
         {!readOnly && (
-          <div className="flex flex-col items-end gap-2">
-            {err && <span className="text-small font-medium text-warn-text">{err}</span>}
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="lg" onClick={onCancel} disabled={saving}>Batal</Button>
-              <Button size="lg" onClick={save} disabled={saving || reading}>{saving ? "Menyimpan…" : mode === "baru" ? "Simpan Anggota" : "Simpan Perubahan"}</Button>
-            </div>
+          <div className="flex items-start justify-between gap-4">
             <span className="text-small text-fg-subtle"><span className="text-warn-text">*</span> wajib diisi</span>
+            <div className="flex flex-col items-end gap-2">
+              {err && <span className="text-small font-medium text-warn-text">{err}</span>}
+              <div className="flex items-center gap-3">
+                <Button variant="outline" size="lg" onClick={onCancel} disabled={saving}>Batal</Button>
+                <Button size="lg" onClick={save} disabled={saving || reading}>{saving ? "Menyimpan…" : mode === "baru" ? "Simpan Anggota" : "Simpan Perubahan"}</Button>
+
+              </div>
+            </div>
           </div>
         )}
       </div>

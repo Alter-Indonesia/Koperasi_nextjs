@@ -11,6 +11,8 @@ import { CellStack, Table } from "@/components/ui/Table";
 import { cx } from "@/components/ui/cx";
 import { useApi } from "@/lib/api";
 import { angka, jam, persen, rupiah, rupiahRingkas, tanggalPanjang } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Dashboard = {
   date: string;
@@ -19,11 +21,12 @@ type Dashboard = {
   paid_today: { count: number; amount: number; from_due: number };
   arrears: { amount: number; members: number; npl: number | null };
   flow: Record<"active_loans" | "due" | "reminders" | "payments" | "verifications" | "paid_off" | "follow_up", number>;
-  pending: { id: number; amount: number; method: string; method_note: string | null; paid_at: string; installment_sequence: number; tenor_months: number; loan_number: string; member_name: string; collector_name: string | null }[];
+  pending: { id: number; amount: number; method: string; method_note: string | null; paid_at: string; installment_sequence: number; tenor_duration: number; loan_number: string; member_name: string; collector_name: string | null }[];
   collectors: { id: number; name: string; region_name: string; tasks: number; completed: number; collected: number }[];
 };
 
-export default function DashboardPage() {
+function DashboardPage() {
+  const { can } = useSession();
   const { data: d, error, loading, reload } = useApi<Dashboard>("/api/v1/dashboard");
   return (
     <>
@@ -31,9 +34,11 @@ export default function DashboardPage() {
         title="Dashboard Admin"
         subtitle={d ? `${tanggalPanjang(d.date)}  ·  Ringkasan penagihan hari ini` : "Ringkasan penagihan hari ini"}
         actions={
-          <Link href="/admin/pinjaman/baru" className={buttonClass("primary", "lg")}>
-            + Pinjaman Baru
-          </Link>
+          can("loans", "create") && (
+            <Link href="/admin/pinjaman/baru" className={buttonClass("primary", "lg")}>
+              + Pinjaman Baru
+            </Link>
+          )
         }
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
@@ -86,10 +91,10 @@ export default function DashboardPage() {
                 columns={[
                   { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.member_name} size={32} tone={avatarTone(i)} />} title={r.member_name} sub={`${r.collector_name ? `via ${r.collector_name.split(" ")[0]}` : r.method_note ?? r.method} · ${jam(r.paid_at)}`} /> },
                   { key: "n", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.loan_number}</span> },
-                  { key: "k", header: "Angsuran", render: (r) => `${r.installment_sequence} / ${r.tenor_months}` },
+                  { key: "k", header: "Angsuran", render: (r) => `${r.installment_sequence} / ${r.tenor_duration}` },
                   { key: "r", header: "Nominal", render: (r) => <b>{rupiah(r.amount)}</b> },
                   { key: "m", header: "Metode", render: (r) => (r.method === "tunai" ? <Badge tone="sudah-bayar">Tunai</Badge> : <Badge tone="belum-bayar">{r.method === "qris" ? "QRIS" : "Transfer"}</Badge>) },
-                  { key: "x", header: "Aksi", render: (r) => <Link href={`/admin/verifikasi#${r.id}`} className={buttonClass("accent", "sm")}>Verifikasi</Link> },
+                  { key: "x", header: "Aksi", render: (r) => can("payments", "update") ? <Link href={`/admin/verifikasi#${r.id}`} className={buttonClass("accent", "sm")}>Verifikasi</Link> : <span className="text-fg-subtle">—</span> },
                 ]}
               />
             </Card>
@@ -124,3 +129,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+export default withFreshState(DashboardPage, { module: "dashboard" });

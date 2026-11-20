@@ -18,6 +18,8 @@ export type FieldDef = {
   wide?: boolean; // memenuhi dua kolom
   min?: number;
   max?: number;
+  step?: number | "any"; // angka desimal (mis. persen jasa)
+  toggleText?: [string, string]; // teks di samping sakelar: [aktif, nonaktif]
   readOnlyOn?: ("edit")[]; // tidak bisa diubah saat edit (mis. kode)
 };
 export type Mode = "baru" | "lihat" | "edit";
@@ -95,12 +97,13 @@ export function EntityForm({
               return (
                 <div key={f.key} className={f.wide || f.type === "textarea" ? "col-span-2" : undefined}>
                   {f.type === "toggle" ? (
-                    <div className="flex items-center justify-between gap-4 rounded-ctl border border-line px-4 py-3">
-                      <div>
-                        <div className="text-body-sm font-bold text-fg">{f.label}</div>
-                        {f.help && <div className="text-small text-fg-muted">{f.help}</div>}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-body-sm font-bold text-fg">{f.label}</span>
+                      <div className="flex h-[52px] items-center justify-between gap-4 rounded-ctl border-[1.5px] border-line px-4">
+                        <span className="text-body text-fg">{(f.toggleText ?? ["Ya", "Tidak"])[val ? 0 : 1]}</span>
+                        <Toggle on={!!val} label={f.label} onChange={disabled ? undefined : (x) => change(f.key, x)} />
                       </div>
-                      <Toggle on={!!val} label={f.label} onChange={disabled ? undefined : (x) => change(f.key, x)} />
+                      {f.help && !readOnly && <span className="text-small text-fg-subtle">{f.help}</span>}
                     </div>
                   ) : (
                     <Field label={f.label} wajib={!readOnly && isRequired(f, mode)} error={errors[f.key]}>
@@ -118,6 +121,7 @@ export function EntityForm({
                           disabled={disabled}
                           min={f.min}
                           max={f.max}
+                          step={f.step}
                           placeholder={f.placeholder}
                           autoComplete={f.type === "password" ? "new-password" : undefined}
                           onChange={(e) => change(f.key, e.target.value)}
@@ -132,13 +136,16 @@ export function EntityForm({
           </div>
         </Card>
         {!readOnly && (
-          <div className="flex flex-col items-end gap-2">
-            {err && <span className="text-small font-medium text-warn-text">{err}</span>}
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="lg" onClick={onCancel} disabled={saving}>Batal</Button>
-              <Button size="lg" onClick={save} disabled={saving}>{saving ? "Menyimpan…" : submitLabel ?? (mode === "baru" ? "Simpan" : "Simpan Perubahan")}</Button>
-            </div>
+          <div className="flex items-start justify-between gap-4">
             <span className="text-small text-fg-subtle"><span className="text-warn-text">*</span> wajib diisi</span>
+            <div className="flex flex-col items-end gap-2">
+              {err && <span className="text-small font-medium text-warn-text">{err}</span>}
+              <div className="flex items-center gap-3">
+                <Button variant="outline" size="lg" onClick={onCancel} disabled={saving}>Batal</Button>
+                <Button size="lg" onClick={save} disabled={saving}>{saving ? "Menyimpan…" : submitLabel ?? (mode === "baru" ? "Simpan" : "Simpan Perubahan")}</Button>
+
+              </div>
+            </div>
           </div>
         )}
       </div>

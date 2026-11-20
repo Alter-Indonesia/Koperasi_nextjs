@@ -11,6 +11,8 @@ import { Textarea, Toggle } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
 import { api, ApiError, useApi } from "@/lib/api";
 import { jam } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Data = {
   channels: { code: string; name: string; description: string; is_active: boolean }[];
@@ -29,7 +31,8 @@ const LABEL: Record<string, string> = { "H-3": "H-3", "H-1": "H-1", HARI_H: "Har
 const hari = (o: number) => (o === 0 ? "Hari H" : o < 0 ? `H${o}` : `H+${o}`);
 const contoh: Record<string, string> = { "{nama}": "Siti Aminah", "{angsuran_ke}": "9", "{no_pinjaman}": "PJ-24-0187", "{nominal}": "Rp 1.250.000", "{jatuh_tempo}": "25 Nov 2026" };
 
-export default function PengingatPage() {
+function PengingatPage() {
+  const { can } = useSession();
   const { data, error, loading, reload } = useApi<Data>("/api/v1/pengingat");
   const [tpl, setTpl] = useState("H-3");
   const [draft, setDraft] = useState<string | null>(null); // null = tidak sedang mengubah
@@ -77,7 +80,7 @@ export default function PengingatPage() {
                         <div className="text-body font-bold">{s.name}</div>
                         <div className="text-small text-fg-muted">{s.description}</div>
                       </div>
-                      <Toggle on={s.is_active} label={`Aktifkan ${s.name}`} onChange={(v) => ubahSaluran(s.code, v)} />
+                      <Toggle on={s.is_active} label={`Aktifkan ${s.name}`} onChange={can("reminders", "update") ? (v) => ubahSaluran(s.code, v) : undefined} />
                     </li>
                   );
                 })}
@@ -122,7 +125,7 @@ export default function PengingatPage() {
                     <Button onClick={simpanTemplate}>Simpan Template</Button>
                   </div>
                 ) : (
-                  <Button variant="outline" onClick={() => setDraft(cur?.body ?? "")}>Ubah Template</Button>
+                  can("reminders", "update") && <Button variant="outline" onClick={() => setDraft(cur?.body ?? "")}>Ubah Template</Button>
                 )}
               </div>
             </Card>
@@ -154,3 +157,5 @@ export default function PengingatPage() {
     </>
   );
 }
+
+export default withFreshState(PengingatPage, { module: "reminders" });

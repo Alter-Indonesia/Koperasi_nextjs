@@ -1,6 +1,6 @@
 import "server-only";
 import { q } from "@/lib/db";
-import { type Action, type Area, type Module, type PermissionMap } from "@/lib/permissions";
+import { type Action, type Area, type Module, type PermissionMap, MODULES, MODULE_ACTIONS, SUPERADMIN_ROLE } from "@/lib/permissions";
 
 /** Hak akses & area per role, dibaca dari DB dan di-cache singkat (diinvalidasi saat role diubah). */
 type RoleInfo = { area: Area; permissions: PermissionMap };
@@ -24,6 +24,9 @@ async function load(): Promise<Map<string, RoleInfo>> {
     if (p.can_delete) actions.push("delete");
     if (actions.length) map.get(p.code)!.permissions[p.module] = actions;
   }
+  // Owner = superadmin: selalu semua modul & aksi (modul baru otomatis ikut), apa pun isi tabel role_permissions
+  const owner = map.get(SUPERADMIN_ROLE);
+  if (owner) owner.permissions = Object.fromEntries(MODULES.map((m) => [m.code, [...MODULE_ACTIONS[m.code]]])) as PermissionMap;
   g.rbacCache = { at: Date.now(), roles: map };
   return map;
 }

@@ -12,11 +12,14 @@ import { SearchInput, Select } from "@/components/ui/Form";
 import { CellStack, Pager, Table } from "@/components/ui/Table";
 import { qs, useApi, useDebounced, useHash } from "@/lib/api";
 import { jam, tanggal } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type User = { id: number; code: string | null; name: string; email: string; role: string; role_name: string; region_name: string | null; status: "aktif" | "nonaktif"; last_login_at: string | null };
 type Meta = { page: number; limit: number; total: number };
 
-export default function PenggunaPage() {
+function PenggunaPage() {
+  const { can } = useSession();
   const [cari, setCari] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
@@ -31,7 +34,7 @@ export default function PenggunaPage() {
       <PageHeader
         title="Pengguna"
         subtitle={meta ? `${meta.total} akun terdaftar` : "Memuat…"}
-        actions={<Link href="/admin/sistem/pengguna/baru" className={buttonClass("primary", "lg")}>+ Pengguna Baru</Link>}
+        actions={can("users", "create") && <Link href="/admin/sistem/pengguna/baru" className={buttonClass("primary", "lg")}>+ Pengguna Baru</Link>}
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       <Card>
@@ -79,3 +82,5 @@ export default function PenggunaPage() {
     </>
   );
 }
+
+export default withFreshState(PenggunaPage, { module: "users" });

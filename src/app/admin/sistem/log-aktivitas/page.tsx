@@ -10,6 +10,7 @@ import { Pager, Table } from "@/components/ui/Table";
 import { qs, useApi, useDebounced } from "@/lib/api";
 import { jam, tanggal } from "@/lib/format";
 import { ACTIVITY_LABEL, MODULES } from "@/lib/permissions";
+import { withFreshState } from "@/components/layout/FreshState";
 
 type Log = { id: number; user_name: string | null; action: string; module: string | null; method: string | null; path: string | null; status_code: number | null; ip: string | null; created_at: string };
 type Meta = { page: number; limit: number; total: number };
@@ -17,7 +18,7 @@ type Meta = { page: number; limit: number; total: number };
 const moduleLabel = (m: string | null) => (m === "auth" ? "Autentikasi" : MODULES.find((x) => x.code === m)?.label ?? m ?? "—");
 const tone = (a: string): BadgeTone => (a === "login_failed" || a === "delete" ? "telat" : a === "login" || a === "logout" ? "belum-bayar" : "sudah-bayar");
 
-export default function LogAktivitasPage() {
+function LogAktivitasPage() {
   const [cari, setCari] = useState("");
   const [mod, setMod] = useState("");
   const [action, setAction] = useState("");
@@ -73,3 +74,5 @@ export default function LogAktivitasPage() {
     </>
   );
 }
+
+export default withFreshState(LogAktivitasPage, { module: "activity_logs" });

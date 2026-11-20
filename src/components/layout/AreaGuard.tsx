@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getSessionUser } from "@/lib/auth";
 import { roleInfo } from "@/lib/rbac";
-import type { Area } from "@/lib/permissions";
+import { canEnterArea, type Area } from "@/lib/permissions";
 import { AreaShell } from "./AreaShell";
 
 /** Validasi sesi sebenarnya (proxy hanya mengecek keberadaan cookie). Membaca cookie => harus di dalam <Suspense>. */
@@ -10,7 +10,7 @@ async function Guard({ area, children }: { area: Area; children: React.ReactNode
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const { area: userArea } = await roleInfo(user.role);
-  if (userArea !== area) redirect(`/${userArea}`);
+  if (!canEnterArea(userArea, area)) redirect(`/${userArea}`);
   return <AreaShell area={area}>{children}</AreaShell>;
 }
 

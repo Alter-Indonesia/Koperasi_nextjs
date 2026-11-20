@@ -9,6 +9,8 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBox, Modal, Skeleton, Toast } from "@/components/ui/Feedback";
 import { api, ApiError, useApi, useHash } from "@/lib/api";
 import { jam, tanggal } from "@/lib/format";
+import type { Module } from "@/lib/permissions";
+import { useSession } from "@/lib/session";
 import { EntityForm, type FieldDef, type Values } from "./EntityForm";
 
 type Audit = { created_at?: string; updated_at?: string; created_by_name?: string | null; updated_by_name?: string | null };
@@ -66,9 +68,10 @@ export function EntityNewPage({
  * `extra` = kartu tambahan di kolom kanan (mis. matriks hak akses).
  */
 export function EntityDetailPage<T extends Audit & { id: number }>({
-  params, heading, subtitle, listHref, listLabel, apiPath, fields, toValues, toPayload, formTitle, deleteWarning, canDelete = () => true, canEdit = () => true, extra, loadingExtra = false, readOnly = false, hideAudit = false, afterSave,
+  params, module, heading, subtitle, listHref, listLabel, apiPath, fields, toValues, toPayload, formTitle, deleteWarning, canDelete = () => true, canEdit = () => true, extra, loadingExtra = false, readOnly = false, hideAudit = false, afterSave,
 }: {
   params: Promise<{ id: string }>;
+  module?: Module; // modul hak akses: tombol Edit/Hapus hanya tampil bila role punya hak ubah/hapus modul ini
   heading: (r: T) => string;
   subtitle?: (r: T) => string;
   listHref: string; listLabel: string; apiPath: string; fields: FieldDef[]; formTitle: string;
@@ -85,6 +88,7 @@ export function EntityDetailPage<T extends Audit & { id: number }>({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { can } = useSession();
   const { data: d, error, loading, reload } = useApi<T>(`${apiPath}/${id}`);
   const [edit, setEdit] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -123,8 +127,8 @@ export function EntityDetailPage<T extends Audit & { id: number }>({
         actions={
           d && !edit && !readOnly ? (
             <>
-              {canEdit(d) && <Button variant="outline" size="lg" onClick={() => setEdit(true)}>Edit</Button>}
-              {canDelete(d) && <Button variant="danger" size="lg" onClick={() => { setDeleteError(null); setConfirming(true); }}>Hapus</Button>}
+              {(!module || can(module, "update")) && canEdit(d) && <Button variant="outline" size="lg" onClick={() => setEdit(true)}>Edit</Button>}
+              {(!module || can(module, "delete")) && canDelete(d) && <Button variant="danger" size="lg" onClick={() => { setDeleteError(null); setConfirming(true); }}>Hapus</Button>}
             </>
           ) : undefined
         }
