@@ -36,7 +36,7 @@ function Rincian({ row, date }: { row: Row; date: string }) {
   ];
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 gap-x-6 gap-y-3">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         {info.map(([l, v]) => (
           <div key={l}>
             <div className="text-caption text-fg-muted">{l}</div>

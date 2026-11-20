@@ -16,6 +16,7 @@ export const MemberFields = {
   address: z.string().trim().min(5, "Alamat minimal 5 karakter").max(200),
   region_id: z.number().int().positive(),
   biodata_source: z.enum(["manual", "ocr"]),
+  allow_partial_payment: z.boolean().nullable(), // null = ikuti pengaturan umum (partial_payment_enabled)
 };
 
 /** `metadata` = biodata KTP + data lain anggota (dibuat server, bukan dari klien). */

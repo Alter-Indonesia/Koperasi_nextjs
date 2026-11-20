@@ -5,7 +5,7 @@ import { HttpError } from "@/lib/http";
 export type SettingType = "text" | "number" | "boolean" | "select";
 export type SettingRow = {
   id: number; key: string; group_name: string; label: string; description: string | null;
-  value_type: SettingType; value: unknown; config: { options?: { value: string; label: string }[]; min?: number; max?: number; step?: number; prefix?: string; suffix?: string; max_length?: number };
+  value_type: SettingType; value: unknown; config: { options?: { value: string; label: string }[]; min?: number; max?: number; step?: number; prefix?: string; suffix?: string; max_length?: number; pattern?: string; pattern_hint?: string };
 };
 
 /** Nilai satu pengaturan (jatuh ke `fallback` bila barisnya tidak ada atau nilainya kosong). */
@@ -35,6 +35,7 @@ export function checkSettingValue(s: Pick<SettingRow, "label" | "value_type" | "
       if (typeof v !== "string") throw new HttpError(422, `${s.label}: harus berupa teks`);
       const t = v.trim();
       if (t.length > (c.max_length ?? 500)) throw new HttpError(422, `${s.label}: maksimal ${c.max_length ?? 500} karakter`);
+      if (c.pattern && !new RegExp(c.pattern).test(t)) throw new HttpError(422, `${s.label}: ${c.pattern_hint ?? "format tidak valid"}`);
       return t;
     }
   }

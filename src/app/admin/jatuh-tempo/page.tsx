@@ -73,7 +73,7 @@ function JatuhTempoPage() {
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       <Card className="mb-6">
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-[repeat(7,minmax(72px,1fr))] gap-3 overflow-x-auto">
           {(meta?.week ?? Array.from({ length: 7 }, (_, i) => ({ date: String(i), count: 0 }))).map((m, i) => {
             const on = m.date === pilih;
             return (
@@ -88,7 +88,7 @@ function JatuhTempoPage() {
           })}
         </div>
       </Card>
-      <div className="mb-6 grid grid-cols-4 gap-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
         {([
           ["Lewat jatuh tempo", r?.overdue_count, r?.overdue_amount, true, "overdue"],
           ["Jatuh tempo hari ini", r?.today_count, r?.today_amount, false, "today"],

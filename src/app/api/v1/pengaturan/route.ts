@@ -5,7 +5,8 @@ import { checkSettingValue, type SettingRow } from "@/lib/settings";
 
 const LIST = `SELECT s.id, s.key, s.group_name, s.label, s.description, s.value_type, s.value, s.config, s.sort_order, s.updated_at, u.name AS updated_by_name
               FROM settings s LEFT JOIN users u ON u.id = s.updated_by
-              WHERE s.deleted_at IS NULL ORDER BY s.group_name, s.sort_order, s.id`;
+              WHERE s.deleted_at IS NULL
+              ORDER BY (SELECT MIN(g.sort_order) FROM settings g WHERE g.group_name = s.group_name AND g.deleted_at IS NULL), s.group_name, s.sort_order, s.id`;
 
 // GET /api/v1/pengaturan — semua pengaturan sistem (halaman Sistem › Pengaturan dibentuk dari baris-baris ini)
 export const GET = handle(async () => ok(await q(LIST)), { module: "settings" });

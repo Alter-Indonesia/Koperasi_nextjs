@@ -87,10 +87,10 @@ export function EntityForm({
   }
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="flex flex-col gap-6">
         <Card title={title}>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {shown.map((f) => {
               const disabled = readOnly || (mode === "edit" && f.readOnlyOn?.includes("edit"));
               const val = v[f.key];

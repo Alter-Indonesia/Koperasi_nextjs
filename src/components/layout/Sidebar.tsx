@@ -13,11 +13,11 @@ export type NavGroup = { label: string; items: NavItem[] };
  * Pola sidebar (design system: Nav/Active · Nav/Default)
  * Lebar 240 (size/sidebar), latar bg/inverse, item 208×44 radius 10, ikon Lucide 16 stroke 1.5.
  */
-export function Sidebar({ groups, profileMenu = [], user, onLogout }: { groups: NavGroup[]; profileMenu?: NavItem[]; user: { name: string; role: string; email?: string } | null; onLogout: () => void }) {
+export function Sidebar({ groups, profileMenu = [], user, onLogout, className }: { groups: NavGroup[]; profileMenu?: NavItem[]; user: { name: string; role: string; email?: string } | null; onLogout: () => void; className?: string }) {
   const path = usePathname();
   const isActive = (it: NavItem) => (it.exact ? path === it.href : path === it.href || path.startsWith(it.href + "/"));
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-[240px] flex-col bg-inverse px-4 pt-7 pb-6">
+    <aside className={cx("fixed inset-y-0 left-0 z-30 flex w-[240px] flex-col bg-inverse px-4 pt-7 pb-6", className)}>
       <div className="mb-8 flex items-center gap-3 px-2">
         <span className="flex size-10 items-center justify-center rounded-ctl bg-accent text-[20px] font-bold text-on-accent">K</span>
         <div>

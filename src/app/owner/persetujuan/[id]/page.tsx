@@ -58,10 +58,10 @@ function PersetujuanDetailPage({ params }: PageProps<"/owner/persetujuan/[id]">)
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !d && <Skeleton className="h-[420px]" />}
       {d && (
-        <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="flex flex-col gap-6">
             <Card title="Rincian Pinjaman">
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
                 {([
                   ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], ["Jasa", `${d.interest_rate_percent}% / ${d.tenor_unit === "hari" ? "hari" : "bln"} flat`],
                   [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Biaya admin", `${rupiah(d.admin_fee)} (${d.admin_fee_mode === "tambah" ? "penambah" : "pengurang"})`], ["Pokok ditagih", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).financed)], ["Dana diterima", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).received)], ["Total kembali", rupiah(totalBack)], ["Rencana cair", d.disbursed_on ? tanggal(d.disbursed_on) : "—"],

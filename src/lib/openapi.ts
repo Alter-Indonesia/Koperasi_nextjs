@@ -663,9 +663,29 @@ export const openapi = {
         summary: "Tagihan yang ditugaskan kepada saya hari ini",
         description: "Role: Petugas (modul `my_tasks`). Hanya penugasan milik pengguna yang login; telat lebih dulu, yang sudah dibayar (menunggu verifikasi/lunas) di akhir.",
         responses: {
-          "200": resp("Tugas hari ini", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer })), obj({ date, total: integer, done: integer, amount_total: rp(), amount_done: rp() }))),
+          "200": resp("Tugas hari ini", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer, promised_on: nullable(date), promise_reason: nullable(string) })), obj({ date, total: integer, done: integer, postponed: integer, amount_total: rp(), amount_done: rp(), methods: obj({ tunai: { type: "boolean" }, transfer: { type: "boolean" } }), bank: obj({ name: string, number: string, holder: string }) }))),
           ...UNAUTH,
         },
+      },
+    },
+    "/api/v1/petugas/tugas/{id}/bayar": {
+      post: {
+        tags: ["Petugas"],
+        summary: "Catat pembayaran angsuran (tunai / transfer)",
+        description: "Role: Petugas (hak `create` pada `my_tasks`). `id` = angsuran yang ditugaskan kepada petugas hari ini. Nominal = total angsuran. Pembayaran berstatus `menunggu` dan angsuran menjadi `menunggu_verifikasi` sampai admin memverifikasi. Metode yang dinonaktifkan di pengaturan ditolak 422.",
+        parameters: [idPath("ID angsuran")],
+        requestBody: jsonBody(obj({ method: { type: "string", enum: ["tunai", "transfer"] }, method_note: { type: "string", maxLength: 100, description: "Wajib untuk transfer: bank / no. referensi" }, notes: { type: "string", maxLength: 300 } }, ["method"])),
+        responses: { "201": resp("Pembayaran tercatat", data(obj({ id: integer, amount: rp(), method: string, status: { type: "string", example: "menunggu" } }))), "400": err("Data tidak valid"), "404": err("Tagihan tidak ada di tugas hari ini"), "409": err("Sudah dibayar / menunggu verifikasi"), "422": err("Metode dinonaktifkan / referensi transfer kosong"), ...UNAUTH },
+      },
+    },
+    "/api/v1/petugas/tugas/{id}/tunda": {
+      post: {
+        tags: ["Petugas"],
+        summary: "Tunda tagihan ke tanggal janji bayar",
+        description: "Role: Petugas (hak `create` pada `my_tasks`). Tanggal janji harus setelah hari ini dan paling lama 30 hari ke depan. Tagihan ikut ditugaskan ke petugas yang sama pada tanggal janji; alasan dicatat di `payment_promises`.",
+        parameters: [idPath("ID angsuran")],
+        requestBody: jsonBody(obj({ promised_on: date, reason: { type: "string", minLength: 3, maxLength: 300 } }, ["promised_on", "reason"])),
+        responses: { "201": resp("Tagihan ditunda", data(obj({ id: integer, promised_on: date }))), "400": err("Data tidak valid"), "404": err("Tagihan tidak ada di tugas hari ini"), "409": err("Sudah dibayar / menunggu verifikasi"), "422": err("Tanggal janji di luar batas"), ...UNAUTH },
       },
     },
     "/api/v1/petugas/setoran": {
@@ -796,6 +816,7 @@ export const openapi = {
           principal_savings: { type: "integer", minimum: 0, default: 0 },
           biodata: ref("Biodata"),
           biodata_source: { type: "string", enum: ["manual", "ocr"], default: "manual" },
+          allow_partial_payment: { type: ["boolean", "null"], default: null, description: "Izin bayar sebagian anggota ini: null = ikuti pengaturan partial_payment_enabled, true/false = timpa" },
         },
         ["name", "national_id", "phone", "address", "region_id"],
       ),
@@ -808,11 +829,13 @@ export const openapi = {
         status: { type: "string", enum: ["aktif", "nonaktif"] },
         biodata: ref("Biodata"),
         biodata_source: { type: "string", enum: ["manual", "ocr"] },
+        allow_partial_payment: { type: ["boolean", "null"], description: "null = ikuti pengaturan umum (partial_payment_enabled)" },
       }),
       MemberDetail: obj({
         id: integer, member_number: { ...string, example: "AG-1044" }, name: string, national_id: { type: ["string", "null"] }, phone: string, address: string,
         region_id: integer, region_name: string, joined_on: date, status: { type: "string", enum: ["aktif", "nonaktif"] },
         biodata: ref("Biodata"), has_id_card: { type: "boolean", description: "Foto KTP sudah diunggah (ambil lewat GET /anggota/{id}/ktp)" },
+        allow_partial_payment: { type: ["boolean", "null"], description: "Izin bayar sebagian anggota ini (null = ikuti pengaturan umum)" },
         created_at: dateTime, updated_at: dateTime,
         created_by_name: { type: ["string", "null"], description: "Nama pengguna created_by" }, updated_by_name: { type: ["string", "null"], description: "Nama pengguna updated_by" },
         loans: arr(obj({ id: integer, loan_number: string, principal_amount: rp(), tenor_duration: integer, tenor_unit: { type: "string", enum: ["bulan", "hari"] }, installment_amount: rp(), status: string, remaining_balance: rp(), arrears_amount: rp(), collectibility: ref("Kolektibilitas") })),
@@ -822,7 +845,7 @@ export const openapi = {
       Setting: obj({
         id: integer, key: { ...string, example: "admin_fee_mode" }, group_name: { ...string, example: "Pinjaman" }, label: string, description: nullable(string),
         value_type: { type: "string", enum: ["text", "number", "boolean", "select"] }, value: { description: "Nilai saat ini (tipe mengikuti value_type)" },
-        config: { type: "object", description: "select: options[{value,label}]; number: min,max,step,prefix,suffix; text: max_length", additionalProperties: true },
+        config: { type: "object", description: "select: options[{value,label}]; number: min,max,step,prefix,suffix; text: max_length, pattern (regex) + pattern_hint", additionalProperties: true },
         sort_order: integer, updated_at: dateTime, updated_by_name: nullable(string),
       }),
       TenorInput: obj({ duration: { type: "integer", minimum: 1, maximum: 365, description: "Bulan (maks. 60) atau hari (maks. 365) sesuai unit", example: 12 }, unit: { type: "string", enum: ["bulan", "hari"], default: "bulan" }, interest_rate_percent: { type: "number", minimum: 0, maximum: 100, default: 1.5 }, label: { type: "string", maxLength: 40 }, is_active: { type: "boolean", default: true }, sort_order: { type: "integer", minimum: 0, maximum: 999, default: 0 } }, ["duration"]),

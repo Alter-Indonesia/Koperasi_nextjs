@@ -21,7 +21,7 @@ function PersetujuanPage() {
   return (
     <>
       <PageHeader title="Persetujuan Pinjaman" subtitle="Pengajuan di atas Rp 20 juta memerlukan keputusan Owner" />
-      <div className="mb-6 grid grid-cols-4 gap-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
         <StatCard tone="accent" label="Menunggu Keputusan" value={s ? angka(s.pending) : "…"} note="pengajuan" />
         <StatCard inverse label="Nilai Pengajuan" value={s ? rupiahRingkas(s.pending_amount) : "…"} note="total plafon menunggu" />
         <StatCard label="Disetujui Hari Ini" value={s ? angka(s.approved_today) : "…"} />

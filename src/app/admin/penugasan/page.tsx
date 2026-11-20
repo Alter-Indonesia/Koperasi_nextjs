@@ -66,7 +66,7 @@ function PenugasanPage() {
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Skeleton className="h-[800px]" />}
       {data && (
-        <div className="grid grid-cols-[556px_1fr] gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[556px_minmax(0,1fr)]">
           <section className="flex flex-col rounded-card bg-card">
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <h2 className="flex items-center gap-2 text-title font-bold">Belum Ditugaskan <Badge tone="telat">{data.unassigned.length}</Badge></h2>
@@ -104,7 +104,7 @@ function PenugasanPage() {
               </div>
             </div>
           </section>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {data.collectors.map((p, i) => {
               const berat = p.load / p.max_load > 0.85;
               return (

@@ -10,7 +10,7 @@ export const GET = handle(async (_req: Request, ctx: Route) => {
   const id = idParam((await ctx.params).id);
   const member = await one(
     `SELECT m.id, m.member_number, m.name, m.national_id, m.phone, m.address, m.region_id, r.name AS region_name, m.joined_on, m.status,
-            m.biodata, (m.id_card_image IS NOT NULL) AS has_id_card,
+            m.biodata, (m.id_card_image IS NOT NULL) AS has_id_card, m.allow_partial_payment,
             m.created_at, m.updated_at, uc.name AS created_by_name, uu.name AS updated_by_name
      FROM members m
      JOIN regions r ON r.id = m.region_id
@@ -38,6 +38,7 @@ const UpdateMember = z
     status: z.enum(["aktif", "nonaktif"]),
     biodata: BiodataSchema, // menggantikan seluruh biodata (kolom yang dikosongkan ikut terhapus)
     biodata_source: MemberFields.biodata_source,
+    allow_partial_payment: MemberFields.allow_partial_payment,
   })
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Tidak ada data yang diubah");
@@ -63,9 +64,11 @@ export const PATCH = handle(async (req: Request, ctx: Route) => {
       ...n, region_name: region.name, principal_savings: Number(cur.principal_savings), biodata_source: d.biodata_source ?? cur.metadata?.biodata_source ?? "manual",
     });
     await c.query(
-      `UPDATE members SET name = $2, national_id = $3, phone = $4, address = $5, region_id = $6, status = $7, biodata = $8::jsonb, metadata = $9::jsonb, updated_by = $10
+      `UPDATE members SET name = $2, national_id = $3, phone = $4, address = $5, region_id = $6, status = $7, biodata = $8::jsonb, metadata = $9::jsonb,
+         allow_partial_payment = $10, updated_by = $11
        WHERE id = $1`,
-      [id, n.name, n.national_id, n.phone, n.address, n.region_id, n.status, JSON.stringify(n.biodata), JSON.stringify(metadata), currentUser().id],
+      [id, n.name, n.national_id, n.phone, n.address, n.region_id, n.status, JSON.stringify(n.biodata), JSON.stringify(metadata),
+       d.allow_partial_payment === undefined ? cur.allow_partial_payment : d.allow_partial_payment, currentUser().id],
     );
     return { id, member_number: cur.member_number, name: n.name };
   });

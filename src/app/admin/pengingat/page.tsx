@@ -67,7 +67,7 @@ function PengingatPage() {
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Skeleton className="h-[800px]" />}
       {data && (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-6">
             <Card title="Saluran Notifikasi">
               <ul>
@@ -130,7 +130,7 @@ function PengingatPage() {
               </div>
             </Card>
             <Card title="Log Pengiriman Hari Ini">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {[["Terkirim", data.stats.sent], ["Dibaca", data.stats.read], ["Gagal", data.stats.failed]].map(([l, v], i) => (
                   <div key={l} className="rounded-ctl bg-canvas px-4 py-3">
                     <div className="text-small text-fg-muted">{l}</div>

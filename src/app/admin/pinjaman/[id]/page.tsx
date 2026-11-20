@@ -40,7 +40,7 @@ function DetailPinjamanPage({ params }: PageProps<"/admin/pinjaman/[id]">) {
             <div className="rounded-card border border-warn bg-card px-5 py-4 text-body-sm text-warn-text">Pinjaman ini berstatus pengajuan (di atas Rp 20 jt) dan menunggu persetujuan Owner. Jadwal angsuran dibuat setelah disetujui.</div>
           )}
           <Card title="Ringkasan">
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
               {([
                 ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / ${d.tenor_unit === "hari" ? "hari" : "bln"} flat`],
                 ["Biaya admin", `${rupiah(d.admin_fee)} (${d.admin_fee_mode === "tambah" ? "penambah" : "pengurang"})`], ["Pokok ditagih", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).financed)], ["Dana diterima", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).received)],

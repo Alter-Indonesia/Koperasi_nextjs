@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
 import { Field, Input, Select, Toggle } from "@/components/ui/Form";
 import { api, ApiError, useApi } from "@/lib/api";
-import { tanggal, jam } from "@/lib/format";
+import { angka, tanggal, jam } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { withFreshState } from "@/components/layout/FreshState";
 
@@ -16,6 +16,9 @@ type Setting = {
   config: { options?: { value: string; label: string }[]; min?: number; max?: number; step?: number; prefix?: string; suffix?: string; max_length?: number };
   updated_at: string; updated_by_name: string | null;
 };
+
+/** Pengaturan angka berawalan "Rp" tampil dengan pemisah ribuan (400.000.000); nilai yang dikirim tetap angka utuh. */
+const isRupiah = (s: Setting) => s.value_type === "number" && s.config.prefix === "Rp";
 
 /** Halaman dibentuk otomatis dari baris tabel `settings` (tipe + config); pengaturan baru muncul tanpa ubah kode. */
 function PengaturanPage() {
@@ -80,12 +83,12 @@ function PengaturanPage() {
       {loading && !data ? (
         <Skeleton className="h-[260px]" />
       ) : (
-        <div className="flex max-w-[860px] flex-col gap-6">
+        <div className="flex flex-col gap-6">
           {groups.map((g) => (
             <Card key={g} title={g}>
-              <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-x-8 gap-y-6 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
                 {(data ?? []).filter((s) => s.group_name === g).map((s) => (
-                  <div key={s.key}>
+                  <div key={s.key} className={s.value_type === "select" && (s.config.options?.[0]?.label.length ?? 0) > 40 ? "lg:col-span-2" : undefined}>
                     {s.value_type === "boolean" ? (
                       <div className="flex flex-col gap-2">
                         <span className="text-body-sm font-bold text-fg">{s.label}</span>
@@ -104,15 +107,16 @@ function PengaturanPage() {
                           <div className="relative">
                             {s.config.prefix && <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-body font-medium text-fg-muted">{s.config.prefix}</span>}
                             <Input
-                              type={s.value_type === "number" ? "number" : "text"}
+                              type={s.value_type === "number" && !isRupiah(s) ? "number" : "text"}
+                              inputMode={isRupiah(s) ? "numeric" : undefined}
                               className={s.config.prefix ? "pl-12" : undefined}
-                              value={String(current(s))}
+                              value={isRupiah(s) ? angka(Number(current(s)) || 0) : String(current(s))}
                               disabled={!editable}
                               min={s.config.min}
                               max={s.config.max}
                               step={s.config.step}
                               maxLength={s.config.max_length}
-                              onChange={(e) => change(s, e.target.value)}
+                              onChange={(e) => change(s, isRupiah(s) ? e.target.value.replace(/\D/g, "") : e.target.value)}
                             />
                             {s.config.suffix && <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-body text-fg-muted">{s.config.suffix}</span>}
                           </div>

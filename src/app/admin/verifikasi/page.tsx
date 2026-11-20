@@ -73,7 +73,7 @@ function VerifikasiPage() {
         }
       />
       {list.error && <ErrorBox message={list.error} onRetry={list.reload} />}
-      <div className="grid grid-cols-[420px_1fr] gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
         <section className="rounded-card bg-card p-3">
           <div className="flex items-center justify-between px-2 pt-2 pb-3">
             <h2 className="text-title font-bold">Antrean ({list.data?.length ?? 0})</h2>
@@ -114,7 +114,7 @@ function VerifikasiPage() {
                 </div>
                 {d.status === "menunggu" ? <Badge tone="warn-outline" className="px-3 py-1.5 text-small">Menunggu verifikasi</Badge> : d.status === "terverifikasi" ? <Badge tone="sudah-bayar">Terverifikasi</Badge> : <Badge tone="telat">Ditolak</Badge>}
               </div>
-              <div className="mt-6 grid grid-cols-[300px_1fr] gap-6">
+              <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[300px_minmax(0,1fr)]">
                 <div>
                   <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-[12px] bg-line-subtle text-fg-muted">
                     <FileImage size={40} strokeWidth={1.5} />

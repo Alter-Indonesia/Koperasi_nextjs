@@ -45,13 +45,13 @@ function SetoranPage() {
       {loading && !data ? (
         <Skeleton className="h-64" />
       ) : data && (
-        <div className="grid grid-cols-2 gap-6">
-          <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[repeat(2,minmax(0,1fr))]">
+          <div className="flex min-w-0 flex-col gap-6">
             <section className="flex flex-col gap-2 rounded-card bg-inverse p-5">
-              <span className="text-body-sm font-medium text-fg-inverse-muted">Uang tunai yang Anda pegang</span>
+              <span className="text-body font-medium text-fg-inverse-muted">Uang tunai yang Anda pegang</span>
               <span className="text-kpi font-bold text-accent">{rupiah(tangan?.amount)}</span>
-              <span className="text-small text-fg-inverse-muted">dari {tangan?.count ?? 0} pembayaran tunai</span>
-              <div className="mt-2 flex items-center gap-4">
+              <span className="text-body-sm text-fg-inverse-muted">dari {tangan?.count ?? 0} pembayaran tunai</span>
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
                 {can("my_deposits", "create") && <Button variant="accent" size="lg" disabled={!tangan?.count} onClick={() => setKonfirmasi(true)}>Setor ke Kasir</Button>}
                 <span className="text-body-sm font-bold text-fg-inverse">Batas setor {meta?.deadline}</span>
               </div>
@@ -60,18 +60,19 @@ function SetoranPage() {
               <p className="text-body-sm text-fg-muted">Transfer & QRIS (langsung ke rekening)</p>
               <p className="mt-1 text-title font-bold text-fg">{rupiah(data.non_cash.amount)} · {data.non_cash.count} transaksi</p>
             </Card>
-            <Card title="Rincian Hari Ini">
+            <section>
+              <h2 className="mb-1 text-title font-bold text-fg">Rincian Hari Ini</h2>
               {data.today.length === 0 ? (
                 <p className="py-6 text-center text-body-sm text-fg-muted">Belum ada pembayaran hari ini</p>
               ) : (
                 <ul>
                   {data.today.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between gap-4 border-b border-line-subtle py-3 last:border-b-0">
-                      <div>
-                        <p className="text-body font-bold text-fg">{p.member_name}</p>
+                    <li key={p.id} className="flex items-center justify-between gap-4 border-b border-line py-3 last:border-b-0">
+                      <div className="min-w-0">
+                        <p className="truncate text-body font-bold text-fg">{p.member_name}</p>
                         <p className="text-body-sm text-fg-subtle">{jam(p.paid_at)} · {METODE[p.method] ?? p.method}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <p className="text-body font-bold text-fg">{rupiah(p.amount)}</p>
                         <p className="text-small text-fg-muted">{p.method !== "tunai" ? "masuk rekening" : p.deposit_id ? "sudah disetor" : <span className="text-warn-text">di tangan</span>}</p>
                       </div>
@@ -79,20 +80,21 @@ function SetoranPage() {
                   ))}
                 </ul>
               )}
-            </Card>
+            </section>
           </div>
-          <Card title="Riwayat Setoran">
+          <section>
+            <h2 className="mb-3 text-title font-bold text-fg">Riwayat Setoran</h2>
             {data.deposits.length === 0 ? (
               <p className="py-6 text-center text-body-sm text-fg-muted">Belum ada riwayat setoran</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {data.deposits.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-4 rounded-ctl bg-canvas px-4 py-3">
-                    <div>
+                  <li key={d.id} className="flex items-center justify-between gap-4 rounded-card bg-card px-5 py-4">
+                    <div className="min-w-0">
                       <p className="text-body font-bold text-fg">{tanggalPendek(d.deposited_on)}</p>
-                      <p className="text-body-sm text-fg-muted">{d.received_by_name ? `Diterima kasir · ${d.received_by_name}` : `${d.payment_count} pembayaran`}</p>
+                      <p className="truncate text-body-sm text-fg-muted">{d.received_by_name ? `Diterima kasir · ${d.received_by_name}` : `${d.payment_count} pembayaran`}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p className="text-body font-bold text-fg">{rupiah(d.amount)}</p>
                       <p className={d.status === "selisih" ? "text-small font-bold text-warn-text" : "text-small font-bold text-fg-muted"}>
                         {d.status === "cocok" && <Check size={12} strokeWidth={2} className="mr-1 inline" />}{STATUS[d.status]}
@@ -102,7 +104,7 @@ function SetoranPage() {
                 ))}
               </ul>
             )}
-          </Card>
+          </section>
         </div>
       )}
       <Modal

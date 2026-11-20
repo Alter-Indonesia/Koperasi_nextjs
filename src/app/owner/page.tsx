@@ -34,13 +34,13 @@ function OwnerDashboard() {
       {dash.loading && !d && <Skeleton className="h-[480px]" />}
       {d && (
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
             <StatCard tone="accent" label="Total Pinjaman Aktif" value={rupiahRingkas(d.active.outstanding)} note={`${angka(d.active.count)} pinjaman · ${angka(d.active.members)} anggota`} />
             <StatCard inverse label="Menunggu Persetujuan" value={s ? angka(s.pending) : "…"} note={s ? `Nilai ${rupiahRingkas(s.pending_amount)}` : undefined} />
             <StatCard tone="warn" label="Total Tunggakan" value={rupiahRingkas(d.arrears.amount)} note={`NPL ${persen(d.arrears.npl ?? 0)} · ${d.arrears.members} anggota menunggak`} />
             <StatCard label="Terbayar Hari Ini" value={rupiahRingkas(d.paid_today.amount)} note={`${d.paid_today.count} pembayaran`} />
           </div>
-          <div className="grid grid-cols-[1fr_368px] gap-6">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_368px]">
             <Card title="Pengajuan Menunggu Persetujuan" action={<CardLink href="/owner/persetujuan">Lihat semua</CardLink>}>
               <Table
                 rows={(appr.data ?? []).slice(0, 5)}

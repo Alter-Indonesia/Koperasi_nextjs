@@ -93,7 +93,7 @@ async function seed(c) {
   // Kosongkan data contoh TANPA "CASCADE": semua tabel punya kolom audit (created_by, ...) yang menunjuk ke users, jadi CASCADE
   // ikut mengosongkan roles, role_permissions, tenors, dan settings. Tabel konfigurasi itu dipertahankan; yang dikosongkan hanya data contoh.
   for (const t of ['roles', 'tenors', 'settings']) await c.query(`UPDATE ${t} SET created_by = NULL, updated_by = NULL, deleted_by = NULL`);
-  await c.query('TRUNCATE sessions, activity_logs, reminder_logs, reminder_templates, reminder_rules, reminder_channels, assignments, cash_deposits, payments, installments, loans, members RESTART IDENTITY');
+  await c.query('TRUNCATE sessions, activity_logs, reminder_logs, reminder_templates, reminder_rules, reminder_channels, assignments, cash_deposits, payment_promises, payments, installments, loans, members RESTART IDENTITY');
   for (const t of ['users', 'regions']) {
     await c.query(`DELETE FROM ${t}`);
     await c.query(`SELECT setval(pg_get_serial_sequence('${t}', 'id'), 1, false)`);

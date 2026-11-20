@@ -45,7 +45,7 @@ function DashboardPage() {
       {loading && !d && <Skeleton className="h-[540px]" />}
       {d && (
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
             <StatCard label="Total Pinjaman Aktif" value={rupiahRingkas(d.active.outstanding)} note={`${angka(d.active.count)} pinjaman · ${angka(d.active.members)} anggota`} />
             <StatCard label="Jatuh Tempo Hari Ini" value={`${d.due_today.count} angsuran`} note={`Nilai tagihan ${rupiahRingkas(d.due_today.amount)}`} />
             <StatCard label="Terbayar Hari Ini" value={rupiahRingkas(d.paid_today.amount)} note={`${d.paid_today.from_due} dari ${d.due_today.count} angsuran jatuh tempo`}>
@@ -55,7 +55,7 @@ function DashboardPage() {
           </div>
 
           <Card title="Alur Penagihan Hari Ini" action={<CardLink href="/admin/jatuh-tempo">Lihat detail</CardLink>}>
-            <div className="grid grid-cols-7 gap-3">
+            <div className="grid grid-cols-[repeat(7,minmax(72px,1fr))] gap-3 overflow-x-auto">
               {[
                 ["01", "Data Pinjaman", `${d.flow.active_loans} aktif`, "", "/admin/pinjaman"],
                 ["02", "Jatuh Tempo", `${d.flow.due} angsuran`, "", "/admin/jatuh-tempo"],
@@ -81,7 +81,7 @@ function DashboardPage() {
             </div>
           </Card>
 
-          <div className="grid grid-cols-[1fr_368px] gap-6">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_368px]">
             <Card title="Pembayaran Menunggu Verifikasi" action={<CardLink href="/admin/verifikasi">Lihat semua</CardLink>}>
               <Table
                 rows={d.pending}

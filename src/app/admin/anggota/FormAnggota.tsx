@@ -14,11 +14,11 @@ type Bio = Record<BioKey, string>;
 export type Mode = "baru" | "lihat" | "edit";
 export type Initial = {
   name: string; national_id: string | null; phone: string | null; address: string | null; region_id: number; status: "aktif" | "nonaktif";
-  biodata: Partial<Record<BioKey, string>>; has_id_card: boolean;
+  biodata: Partial<Record<BioKey, string>>; has_id_card: boolean; allow_partial_payment: boolean | null;
 };
 export type Payload = {
   name: string; national_id: string; phone: string; address: string; region_id: number; status?: "aktif" | "nonaktif";
-  biodata: Partial<Record<BioKey, string>>; biodata_source: "manual" | "ocr";
+  biodata: Partial<Record<BioKey, string>>; biodata_source: "manual" | "ocr"; allow_partial_payment: boolean | null;
 };
 
 const BIODATA_LABEL: Record<BioKey, string> = {
@@ -28,9 +28,11 @@ const BIODATA_LABEL: Record<BioKey, string> = {
 };
 const EMPTY_BIO = Object.fromEntries(KOLOM_BIODATA.map((k) => [k, ""])) as Bio;
 
-type FormState = { name: string; national_id: string; phone: string; address: string; region_id: string; status: "aktif" | "nonaktif" };
+type Partial_ = "ikut" | "ya" | "tidak"; // izin bayar sebagian: ikut pengaturan umum / boleh / tidak boleh
+const PARTIAL_VALUE: Record<Partial_, boolean | null> = { ikut: null, ya: true, tidak: false };
+type FormState = { name: string; national_id: string; phone: string; address: string; region_id: string; status: "aktif" | "nonaktif"; partial: Partial_ };
 type Field_ = keyof FormState;
-const EMPTY_FORM: FormState = { name: "", national_id: "", phone: "", address: "", region_id: "", status: "aktif" };
+const EMPTY_FORM: FormState = { name: "", national_id: "", phone: "", address: "", region_id: "", status: "aktif", partial: "ikut" };
 
 /** Hasil baca KTP -> kolom utama form (alamat disusun dari alamat + RT/RW + kel + kec). */
 export function ktpToForm(b: Partial<Record<BioKey, string>>, nik: string | null): Partial<FormState> {
@@ -46,7 +48,7 @@ export function ktpInfo(b: Partial<Record<BioKey, string>>, nik: string | null):
 export type Prefill = { photo: File; preview: string; national_id: string | null; biodata: Partial<Record<BioKey, string>>; info: string };
 
 const fromInitial = (a?: Initial): FormState =>
-  a ? { name: a.name, national_id: a.national_id ?? "", phone: a.phone ?? "", address: a.address ?? "", region_id: String(a.region_id), status: a.status } : EMPTY_FORM;
+  a ? { name: a.name, national_id: a.national_id ?? "", phone: a.phone ?? "", address: a.address ?? "", region_id: String(a.region_id), status: a.status, partial: a.allow_partial_payment === null ? "ikut" : a.allow_partial_payment ? "ya" : "tidak" } : EMPTY_FORM;
 
 /** Aturan sama dengan server (zod); pesan ditampilkan di bawah kolomnya. */
 function validate(f: FormState): Partial<Record<Field_, string>> {
@@ -122,7 +124,7 @@ export function FormAnggota({
     try {
       const biodata = Object.fromEntries(Object.entries(bio).filter(([, v]) => v.trim())) as Payload["biodata"];
       await onSubmit(
-        { name: f.name.trim(), national_id: f.national_id, phone: f.phone.trim(), address: f.address.trim(), region_id: Number(f.region_id), ...(mode === "edit" ? { status: f.status } : {}), biodata, biodata_source: source },
+        { name: f.name.trim(), national_id: f.national_id, phone: f.phone.trim(), address: f.address.trim(), region_id: Number(f.region_id), ...(mode === "edit" ? { status: f.status } : {}), biodata, biodata_source: source, allow_partial_payment: PARTIAL_VALUE[f.partial] },
         photo,
       );
     } catch (e) {
@@ -141,11 +143,11 @@ export function FormAnggota({
   const image = preview ?? (initial?.has_id_card && memberId ? `/api/v1/anggota/${memberId}/ktp` : null);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="flex flex-col gap-6">
         <Card title="Data Anggota">
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="NIK" wajib={required} error={errors.national_id}>
                 <Input value={f.national_id} disabled={readOnly} onChange={(e) => change("national_id", e.target.value.replace(/\D/g, "").slice(0, 16))} inputMode="numeric" maxLength={16} placeholder="16 digit sesuai KTP" />
               </Field>
@@ -153,7 +155,7 @@ export function FormAnggota({
                 <Input value={f.name} disabled={readOnly} onChange={set("name")} placeholder="Siti Aminah" />
               </Field>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="No. HP" wajib={required} error={errors.phone}>
                 <Input value={f.phone} disabled={readOnly} onChange={set("phone")} placeholder="0812-xxxx-xxxx" />
               </Field>
@@ -167,6 +169,13 @@ export function FormAnggota({
             <Field label="Alamat" wajib={required} error={errors.address}>
               <Textarea value={f.address} disabled={readOnly} onChange={set("address")} placeholder="Jl. Cikutra No. 12, RT 03/05" />
             </Field>
+            <Field label="Bayar sebagian">
+              <Select value={f.partial} disabled={readOnly} onChange={set("partial")}>
+                <option value="ikut">Ikuti pengaturan umum</option>
+                <option value="ya">Diizinkan</option>
+                <option value="tidak">Tidak diizinkan</option>
+              </Select>
+            </Field>
             {mode !== "baru" && (
               <Field label="Status">
                 <Select value={f.status} disabled={readOnly} onChange={set("status")}>
@@ -179,7 +188,7 @@ export function FormAnggota({
         </Card>
 
         <Card title="Biodata KTP" subtitle={readOnly ? undefined : "Terisi otomatis dari foto KTP; boleh diisi atau diperbaiki manual."}>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {KOLOM_BIODATA.map((k) => (
               <Field key={k} label={BIODATA_LABEL[k]}>
                 <Input ukuran="compact" value={bio[k]} disabled={readOnly} onChange={setBioField(k)} placeholder={readOnly ? "—" : k === "date_of_birth" ? "YYYY-MM-DD" : undefined} />

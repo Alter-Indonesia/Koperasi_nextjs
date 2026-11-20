@@ -73,13 +73,13 @@ function LaporanPage() {
       {loading && !d && <Skeleton className="h-[760px]" />}
       {d && (
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
             <StatCard label="Total Ditagih" value={rupiahRingkas(d.kpi.billed_amount)} note={`${angka(d.kpi.billed_count)} angsuran jatuh tempo`} />
             <StatCard label="Terkumpul" value={rupiahRingkas(d.kpi.collected_amount)} note={`${angka(d.kpi.paid_count)} angsuran terbayar`} />
             <StatCard label="Tunggakan Baru" value={rupiahRingkas(d.kpi.arrears_amount)} note={`${angka(d.kpi.arrears_count)} angsuran belum bayar`} />
             <StatCard inverse label="Collection Rate" value={persen(rate)} note="target 95%" />
           </div>
-          <div className="grid grid-cols-[1fr_368px] gap-6">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_368px]">
             <Card title="Rekap per Petugas">
               <Table
                 rows={d.per_collector}

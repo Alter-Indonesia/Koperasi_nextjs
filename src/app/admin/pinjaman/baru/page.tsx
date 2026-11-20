@@ -61,7 +61,7 @@ function PinjamanBaruPage() {
     <>
       <Link href="/admin/pinjaman" className="mb-3 inline-block text-body-sm font-medium text-fg-muted hover:text-fg">← Data Pinjaman</Link>
       <PageHeader title="Pinjaman Baru" subtitle="Jadwal angsuran dibuat otomatis. Pinjaman di atas Rp 20 jt menunggu persetujuan Owner." />
-      <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex flex-col gap-6">
           <Card title="Data Pinjaman">
             <div className="flex flex-col gap-4">
@@ -72,7 +72,7 @@ function PinjamanBaruPage() {
                   onChange={(m) => { setAnggota(m); setF((x) => ({ ...x, anggota_id: String(m.id) })); setSalah((x) => ({ ...x, anggota_id: undefined })); }}
                 />
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Plafon" wajib error={salah.plafon}>
                 <div className="relative">
                   <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-body font-medium text-fg-muted">Rp</span>
@@ -92,11 +92,11 @@ function PinjamanBaruPage() {
                   </Select>
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Tujuan" wajib error={salah.tujuan}><Input value={f.tujuan} onChange={set("tujuan")} placeholder="Modal usaha" /></Field>
                 <Field label="Tanggal cair (kosong = hari ini)"><Input type="date" value={f.tanggal_cair} onChange={set("tanggal_cair")} /></Field>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Biaya admin (opsional)" error={salah.biaya_admin}>
                   <div className="relative">
                     <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-body font-medium text-fg-muted">Rp</span>

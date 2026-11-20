@@ -41,7 +41,7 @@ function AnggotaPage() {
         subtitle={s ? `${angka(s.total)} anggota terdaftar  ·  ${regions?.length ?? 0} wilayah layanan` : "Memuat…"}
         actions={can("members", "create") && <Link href="/admin/anggota/baru" className={buttonClass("primary", "lg")}>+ Anggota Baru</Link>}
       />
-      <div className="mb-6 grid grid-cols-3 gap-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
         <StatCard tone="accent" label="Total Anggota" value={s ? angka(s.total) : "…"} note={s ? `▲ ${s.new_this_month} anggota baru bulan ini` : undefined} />
         <StatCard inverse label="Aktif Meminjam" value={s ? angka(s.borrowing) : "…"} note={s && s.total ? `${Math.round((s.borrowing / s.total) * 100)}% dari total anggota` : undefined} />
         <StatCard tone="warn" label="Sedang Menunggak" value={s ? angka(s.in_arrears) : "…"} note="perlu penagihan lanjutan" />
