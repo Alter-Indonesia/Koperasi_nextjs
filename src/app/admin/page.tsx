@@ -13,14 +13,14 @@ import { useApi } from "@/lib/api";
 import { angka, jam, persen, rupiah, rupiahRingkas, tanggalPanjang } from "@/lib/format";
 
 type Dashboard = {
-  tanggal: string;
-  aktif: { jumlah: number; outstanding: number; anggota: number };
-  jatuhTempo: { jumlah: number; nominal: number };
-  terbayar: { jumlah: number; nominal: number; dari_jatuh_tempo: number };
-  tunggakan: { nominal: number; anggota: number; npl: number | null };
-  alur: Record<"data_pinjaman" | "jatuh_tempo" | "pengingat" | "pembayaran" | "verifikasi" | "lunas" | "lanjutan", number>;
-  menunggu: { id: number; nominal: number; metode: string; keterangan_metode: string | null; dibayar_pada: string; ke: number; tenor: number; no_pinjaman: string; anggota: string; petugas: string | null }[];
-  kinerja: { id: number; nama: string; wilayah: string; tugas: number; selesai: number; terkumpul: number }[];
+  date: string;
+  active: { count: number; outstanding: number; members: number };
+  due_today: { count: number; amount: number };
+  paid_today: { count: number; amount: number; from_due: number };
+  arrears: { amount: number; members: number; npl: number | null };
+  flow: Record<"active_loans" | "due" | "reminders" | "payments" | "verifications" | "paid_off" | "follow_up", number>;
+  pending: { id: number; amount: number; method: string; method_note: string | null; paid_at: string; installment_sequence: number; tenor_months: number; loan_number: string; member_name: string; collector_name: string | null }[];
+  collectors: { id: number; name: string; region_name: string; tasks: number; completed: number; collected: number }[];
 };
 
 export default function DashboardPage() {
@@ -29,9 +29,9 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard Admin"
-        subtitle={d ? `${tanggalPanjang(d.tanggal)}  ·  Ringkasan penagihan hari ini` : "Ringkasan penagihan hari ini"}
+        subtitle={d ? `${tanggalPanjang(d.date)}  ·  Ringkasan penagihan hari ini` : "Ringkasan penagihan hari ini"}
         actions={
-          <Link href="/admin/pinjaman#baru" className={buttonClass("primary", "lg")}>
+          <Link href="/admin/pinjaman/baru" className={buttonClass("primary", "lg")}>
             + Pinjaman Baru
           </Link>
         }
@@ -41,23 +41,23 @@ export default function DashboardPage() {
       {d && (
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-4 gap-6">
-            <StatCard label="Total Pinjaman Aktif" value={rupiahRingkas(d.aktif.outstanding)} note={`${angka(d.aktif.jumlah)} pinjaman · ${angka(d.aktif.anggota)} anggota`} />
-            <StatCard label="Jatuh Tempo Hari Ini" value={`${d.jatuhTempo.jumlah} angsuran`} note={`Nilai tagihan ${rupiahRingkas(d.jatuhTempo.nominal)}`} />
-            <StatCard label="Terbayar Hari Ini" value={rupiahRingkas(d.terbayar.nominal)} note={`${d.terbayar.dari_jatuh_tempo} dari ${d.jatuhTempo.jumlah} angsuran jatuh tempo`}>
-              <Progress value={d.jatuhTempo.jumlah ? d.terbayar.dari_jatuh_tempo / d.jatuhTempo.jumlah : 0} />
+            <StatCard label="Total Pinjaman Aktif" value={rupiahRingkas(d.active.outstanding)} note={`${angka(d.active.count)} pinjaman · ${angka(d.active.members)} anggota`} />
+            <StatCard label="Jatuh Tempo Hari Ini" value={`${d.due_today.count} angsuran`} note={`Nilai tagihan ${rupiahRingkas(d.due_today.amount)}`} />
+            <StatCard label="Terbayar Hari Ini" value={rupiahRingkas(d.paid_today.amount)} note={`${d.paid_today.from_due} dari ${d.due_today.count} angsuran jatuh tempo`}>
+              <Progress value={d.due_today.count ? d.paid_today.from_due / d.due_today.count : 0} />
             </StatCard>
-            <StatCard inverse label="Total Tunggakan" value={rupiahRingkas(d.tunggakan.nominal)} note={`NPL ${persen(d.tunggakan.npl ?? 0)} · ${d.tunggakan.anggota} anggota menunggak`} />
+            <StatCard inverse label="Total Tunggakan" value={rupiahRingkas(d.arrears.amount)} note={`NPL ${persen(d.arrears.npl ?? 0)} · ${d.arrears.members} anggota menunggak`} />
           </div>
 
           <Card title="Alur Penagihan Hari Ini" action={<CardLink href="/admin/jatuh-tempo">Lihat detail</CardLink>}>
             <div className="grid grid-cols-7 gap-3">
               {[
-                ["01", "Data Pinjaman", `${d.alur.data_pinjaman} aktif`, "", "/admin/pinjaman"],
-                ["02", "Jatuh Tempo", `${d.alur.jatuh_tempo} angsuran`, "", "/admin/jatuh-tempo"],
-                ["03", "Pengingat", `${d.alur.pengingat} terkirim`, "", "/admin/pengingat"],
-                ["04", "Pembayaran", `${d.alur.pembayaran} sudah bayar`, "accent", "/admin/verifikasi"],
-                ["05", "Verifikasi", `${d.alur.verifikasi} menunggu`, "warn", "/admin/verifikasi"],
-                ["06", "Saldo / Lanjutan", `${d.alur.lunas} lunas · ${d.alur.lanjutan} tagih`, "", "/admin/jatuh-tempo"],
+                ["01", "Data Pinjaman", `${d.flow.active_loans} aktif`, "", "/admin/pinjaman"],
+                ["02", "Jatuh Tempo", `${d.flow.due} angsuran`, "", "/admin/jatuh-tempo"],
+                ["03", "Pengingat", `${d.flow.reminders} terkirim`, "", "/admin/pengingat"],
+                ["04", "Pembayaran", `${d.flow.payments} sudah bayar`, "accent", "/admin/verifikasi"],
+                ["05", "Verifikasi", `${d.flow.verifications} menunggu`, "warn", "/admin/verifikasi"],
+                ["06", "Saldo / Lanjutan", `${d.flow.paid_off} lunas · ${d.flow.follow_up} tagih`, "", "/admin/jatuh-tempo"],
                 ["07", "Laporan", "Rekap penagihan", "inverse", "/admin/laporan"],
               ].map(([n, t, s, tone, href]) => (
                 <Link
@@ -79,16 +79,16 @@ export default function DashboardPage() {
           <div className="grid grid-cols-[1fr_368px] gap-6">
             <Card title="Pembayaran Menunggu Verifikasi" action={<CardLink href="/admin/verifikasi">Lihat semua</CardLink>}>
               <Table
-                rows={d.menunggu}
+                rows={d.pending}
                 rowKey={(r) => r.id}
                 empty="Tidak ada pembayaran yang menunggu verifikasi"
                 rowHeight="h-[62px]"
                 columns={[
-                  { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.anggota} size={32} tone={avatarTone(i)} />} title={r.anggota} sub={`${r.petugas ? `via ${r.petugas.split(" ")[0]}` : r.keterangan_metode ?? r.metode} · ${jam(r.dibayar_pada)}`} /> },
-                  { key: "n", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.no_pinjaman}</span> },
-                  { key: "k", header: "Angsuran", render: (r) => `${r.ke} / ${r.tenor}` },
-                  { key: "r", header: "Nominal", render: (r) => <b>{rupiah(r.nominal)}</b> },
-                  { key: "m", header: "Metode", render: (r) => (r.metode === "tunai" ? <Badge tone="sudah-bayar">Tunai</Badge> : <Badge tone="belum-bayar">{r.metode === "qris" ? "QRIS" : "Transfer"}</Badge>) },
+                  { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.member_name} size={32} tone={avatarTone(i)} />} title={r.member_name} sub={`${r.collector_name ? `via ${r.collector_name.split(" ")[0]}` : r.method_note ?? r.method} · ${jam(r.paid_at)}`} /> },
+                  { key: "n", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.loan_number}</span> },
+                  { key: "k", header: "Angsuran", render: (r) => `${r.installment_sequence} / ${r.tenor_months}` },
+                  { key: "r", header: "Nominal", render: (r) => <b>{rupiah(r.amount)}</b> },
+                  { key: "m", header: "Metode", render: (r) => (r.method === "tunai" ? <Badge tone="sudah-bayar">Tunai</Badge> : <Badge tone="belum-bayar">{r.method === "qris" ? "QRIS" : "Transfer"}</Badge>) },
                   { key: "x", header: "Aksi", render: (r) => <Link href={`/admin/verifikasi#${r.id}`} className={buttonClass("accent", "sm")}>Verifikasi</Link> },
                 ]}
               />
@@ -96,22 +96,22 @@ export default function DashboardPage() {
 
             <Card title="Kinerja Petugas Lapangan">
               <div className="flex flex-col gap-6">
-                {d.kinerja.map((p, i) => {
-                  const rate = p.tugas ? p.selesai / p.tugas : 0;
-                  const low = p.tugas > 0 && rate < 0.65;
+                {d.collectors.map((p, i) => {
+                  const rate = p.tasks ? p.completed / p.tasks : 0;
+                  const low = p.tasks > 0 && rate < 0.65;
                   return (
                     <div key={p.id}>
                       <div className="flex items-start gap-3">
-                        <Avatar name={p.nama} tone={avatarTone(i)} />
+                        <Avatar name={p.name} tone={avatarTone(i)} />
                         <div className="flex-1">
-                          <div className="text-body font-bold">{p.nama}</div>
-                          <div className="text-small text-fg-subtle">Wil. {p.wilayah}</div>
+                          <div className="text-body font-bold">{p.name}</div>
+                          <div className="text-small text-fg-subtle">Wil. {p.region_name}</div>
                         </div>
-                        <b className="text-body-sm">{rupiahRingkas(p.terkumpul)}</b>
+                        <b className="text-body-sm">{rupiahRingkas(p.collected)}</b>
                       </div>
                       <Progress value={rate} tone={low ? "warn" : "accent"} className="mt-3" />
                       <div className={cx("mt-2 text-small", low ? "font-medium text-warn-text" : "text-fg-muted")}>
-                        {p.selesai} / {p.tugas} tagihan selesai · {persen(rate, 0)}{low ? " · perlu perhatian" : ""}
+                        {p.completed} / {p.tasks} tagihan selesai · {persen(rate, 0)}{low ? " · perlu perhatian" : ""}
                       </div>
                     </div>
                   );

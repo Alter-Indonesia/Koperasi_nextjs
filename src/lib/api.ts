@@ -11,7 +11,9 @@ export class ApiError extends Error {
 }
 
 async function request<T, M>(url: string, init?: RequestInit): Promise<ApiResult<T, M>> {
-  const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store" });
+  // FormData: biarkan browser mengisi Content-Type (multipart + boundary)
+  const json_: Record<string, string> = init?.body instanceof FormData ? {} : { "Content-Type": "application/json" };
+  const res = await fetch(url, { ...init, headers: { ...json_, ...(init?.headers ?? {}) }, cache: "no-store" });
   const json = await res.json().catch(() => ({}));
   // sesi habis di tengah pemakaian -> kembali ke halaman login, lalu ke halaman ini lagi setelah masuk
   if (res.status === 401 && !url.startsWith("/api/v1/auth/") && typeof window !== "undefined") {
@@ -25,8 +27,15 @@ async function request<T, M>(url: string, init?: RequestInit): Promise<ApiResult
 export const api = {
   get: <T, M = Record<string, unknown>>(url: string) => request<T, M>(url),
   post: <T = unknown>(url: string, body: unknown) => request<T, unknown>(url, { method: "POST", body: JSON.stringify(body) }),
+  /** Unggah berkas (multipart); `field` adalah nama field form */
+  upload: <T = unknown>(url: string, field: string, file: File) => {
+    const fd = new FormData();
+    fd.append(field, file);
+    return request<T, Record<string, unknown>>(url, { method: "POST", body: fd });
+  },
   patch: <T = unknown>(url: string, body: unknown) => request<T, unknown>(url, { method: "PATCH", body: JSON.stringify(body) }),
   put: <T = unknown>(url: string, body: unknown) => request<T, unknown>(url, { method: "PUT", body: JSON.stringify(body) }),
+  delete: <T = unknown>(url: string) => request<T, unknown>(url, { method: "DELETE" }),
 };
 
 /** Ambil data dari endpoint; `url = null` berarti jangan memuat. */

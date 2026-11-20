@@ -11,9 +11,11 @@
     "db:migrate": "node --env-file=.env.local scripts/db.mjs migrate",
     "db:seed": "node --env-file=.env.local scripts/db.mjs seed",
     "db:set-password": "node --env-file=.env.local scripts/db.mjs set-password",
-    "test:auth": "node --env-file=.env.local scripts/uji-auth.mjs"
+    "test:auth": "node --env-file=.env.local scripts/uji-auth.mjs",
+    "test:docs": "node --env-file=.env.local scripts/cek-openapi.mjs"
   },
   "dependencies": {
+    "@scalar/nextjs-api-reference": "^0.12.20",
     "bcryptjs": "^3.0.3",
     "lucide-react": "^1.76.0",
     "next": "16.4.6",
@@ -21,6 +23,8 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

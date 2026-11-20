@@ -27,9 +27,9 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   // sudah login? langsung ke beranda
-  const sesi = useApi<{ beranda: string }>("/api/v1/auth/me");
+  const sesi = useApi<{ home: string }>("/api/v1/auth/me");
   useEffect(() => {
-    if (sesi.data) router.replace(tujuanAman(new URLSearchParams(window.location.search).get("next"), sesi.data.beranda));
+    if (sesi.data) router.replace(tujuanAman(new URLSearchParams(window.location.search).get("next"), sesi.data.home));
   }, [sesi.data, router]);
 
   async function masuk(e: React.FormEvent) {
@@ -38,8 +38,8 @@ export default function LoginPage() {
     if (!email.trim() || !password) return setErr("Isi email dan password");
     setBusy(true);
     try {
-      const r = await api.post<{ beranda: string }>("/api/v1/auth/login", { email, password, ingat });
-      router.replace(tujuanAman(new URLSearchParams(window.location.search).get("next"), r.data.beranda));
+      const r = await api.post<{ home: string }>("/api/v1/auth/login", { email, password, remember: ingat });
+      router.replace(tujuanAman(new URLSearchParams(window.location.search).get("next"), r.data.home));
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Tidak dapat terhubung ke server");
       setPassword("");

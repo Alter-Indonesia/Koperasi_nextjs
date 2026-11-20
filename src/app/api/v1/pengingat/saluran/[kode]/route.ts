@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { one } from "@/lib/db";
-import { body, handle, HttpError, ok, ROLES } from "@/lib/http";
+import { body, currentUser, handle, HttpError, ok } from "@/lib/http";
 
-// PATCH /api/v1/pengingat/saluran/:kode { aktif }
+// PATCH /api/v1/pengingat/saluran/:kode { is_active }
 export const PATCH = handle(async (req: Request, ctx: RouteContext<"/api/v1/pengingat/saluran/[kode]">) => {
   const { kode } = await ctx.params;
-  const d = await body(req, z.object({ aktif: z.boolean() }));
-  const r = await one("UPDATE pengingat_saluran SET aktif = $2 WHERE kode = $1 RETURNING kode, nama, aktif", [kode, d.aktif]);
+  const d = await body(req, z.object({ is_active: z.boolean() }));
+  const r = await one("UPDATE reminder_channels SET is_active = $2, updated_by = $3 WHERE code = $1 RETURNING code, name, is_active", [kode, d.is_active, currentUser().id]);
   if (!r) throw new HttpError(404, "Saluran tidak ditemukan");
   return ok(r);
-}, { roles: ROLES.admin });
+}, { module: "reminders" });

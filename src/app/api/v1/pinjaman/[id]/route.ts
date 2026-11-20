@@ -1,16 +1,16 @@
 import { q, one } from "@/lib/db";
-import { handle, HttpError, idParam, ok, ROLES } from "@/lib/http";
+import { handle, HttpError, idParam, ok } from "@/lib/http";
 
 // GET /api/v1/pinjaman/:id — detail pinjaman + jadwal angsuran
 export const GET = handle(async (_req: Request, ctx: RouteContext<"/api/v1/pinjaman/[id]">) => {
   const id = idParam((await ctx.params).id);
-  const pinjaman = await one("SELECT * FROM v_pinjaman WHERE id = $1", [id]);
-  if (!pinjaman) throw new HttpError(404, "Pinjaman tidak ditemukan");
-  const jadwal = await q(
-    `SELECT a.id, a.ke, a.jatuh_tempo, a.pokok, a.jasa, a.total, a.status,
-            (SELECT MAX(b.dibayar_pada) FROM pembayaran b WHERE b.angsuran_id = a.id AND b.status <> 'ditolak') AS dibayar_pada
-     FROM angsuran a WHERE a.pinjaman_id = $1 ORDER BY a.ke`,
+  const loan = await one("SELECT * FROM v_loans WHERE id = $1", [id]);
+  if (!loan) throw new HttpError(404, "Pinjaman tidak ditemukan");
+  const installments = await q(
+    `SELECT i.id, i.sequence, i.due_date, i.principal_amount, i.interest_amount, i.total_amount, i.status,
+            (SELECT MAX(p.paid_at) FROM payments p WHERE p.installment_id = i.id AND p.status <> 'ditolak') AS paid_at
+     FROM installments i WHERE i.loan_id = $1 ORDER BY i.sequence`,
     [id],
   );
-  return ok({ ...pinjaman, jadwal });
-}, { roles: ROLES.admin });
+  return ok({ ...loan, installments });
+}, { module: "loans" });

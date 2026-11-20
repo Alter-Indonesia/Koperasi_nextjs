@@ -13,11 +13,11 @@ import { api, ApiError, useApi } from "@/lib/api";
 import { jam } from "@/lib/format";
 
 type Data = {
-  saluran: { kode: string; nama: string; deskripsi: string; aktif: boolean }[];
-  aturan: { id: number; offset_hari: number; judul: string; keterangan: string }[];
-  template: { kode: string; saluran: string; isi: string }[];
-  statistik: { terkirim: number; dibaca: number; gagal: number };
-  log: { id: number; saluran: string; status: string; dikirim_pada: string; keterangan: string | null; anggota: string }[];
+  channels: { code: string; name: string; description: string; is_active: boolean }[];
+  rules: { id: number; day_offset: number; title: string; description: string }[];
+  templates: { code: string; channel: string; body: string }[];
+  stats: { sent: number; read: number; failed: number };
+  logs: { id: number; channel: string; status: string; sent_at: string; notes: string | null; member_name: string }[];
 };
 const IKON: Record<string, [LucideIcon, string]> = {
   whatsapp: [MessageCircle, "bg-accent text-on-accent"],
@@ -34,13 +34,13 @@ export default function PengingatPage() {
   const [tpl, setTpl] = useState("H-3");
   const [draft, setDraft] = useState<string | null>(null); // null = tidak sedang mengubah
   const [toast, setToast] = useState<{ m: string; t: "ok" | "warn" } | null>(null);
-  const cur = data?.template.find((t) => t.kode === tpl);
+  const cur = data?.templates.find((t) => t.code === tpl);
   const edit = draft !== null;
-  const isi = draft ?? cur?.isi ?? "";
+  const isi = draft ?? cur?.body ?? "";
 
-  async function ubahSaluran(kode: string, aktif: boolean) {
+  async function ubahSaluran(kode: string, isActive: boolean) {
     try {
-      await api.patch(`/api/v1/pengingat/saluran/${kode}`, { aktif });
+      await api.patch(`/api/v1/pengingat/saluran/${kode}`, { is_active: isActive });
       reload();
     } catch (e) {
       setToast({ m: e instanceof ApiError ? e.message : "Gagal menyimpan", t: "warn" });
@@ -48,7 +48,7 @@ export default function PengingatPage() {
   }
   async function simpanTemplate() {
     try {
-      await api.put(`/api/v1/pengingat/template/${tpl}`, { isi });
+      await api.put(`/api/v1/pengingat/template/${tpl}`, { body: isi });
       setDraft(null);
       setToast({ m: `Template ${LABEL[tpl]} disimpan`, t: "ok" });
       reload();
@@ -68,16 +68,16 @@ export default function PengingatPage() {
           <div className="flex flex-col gap-6">
             <Card title="Saluran Notifikasi">
               <ul>
-                {data.saluran.map((s, i) => {
-                  const [Icon, tone] = IKON[s.kode];
+                {data.channels.map((s, i) => {
+                  const [Icon, tone] = IKON[s.code];
                   return (
-                    <li key={s.kode} className={cx("flex items-center gap-4 py-4", i < data.saluran.length - 1 && "border-b border-line-subtle")}>
+                    <li key={s.code} className={cx("flex items-center gap-4 py-4", i < data.channels.length - 1 && "border-b border-line-subtle")}>
                       <span className={cx("flex size-10 items-center justify-center rounded-ctl", tone)}><Icon size={16} strokeWidth={1.5} /></span>
                       <div className="flex-1">
-                        <div className="text-body font-bold">{s.nama}</div>
-                        <div className="text-small text-fg-muted">{s.deskripsi}</div>
+                        <div className="text-body font-bold">{s.name}</div>
+                        <div className="text-small text-fg-muted">{s.description}</div>
                       </div>
-                      <Toggle on={s.aktif} label={`Aktifkan ${s.nama}`} onChange={(v) => ubahSaluran(s.kode, v)} />
+                      <Toggle on={s.is_active} label={`Aktifkan ${s.name}`} onChange={(v) => ubahSaluran(s.code, v)} />
                     </li>
                   );
                 })}
@@ -85,12 +85,12 @@ export default function PengingatPage() {
             </Card>
             <Card title="Aturan Jadwal Otomatis">
               <ul className="flex flex-col gap-4">
-                {data.aturan.map((a) => (
+                {data.rules.map((a) => (
                   <li key={a.id} className="flex items-center gap-4">
-                    <span className={cx("w-16 rounded-pill py-1.5 text-center text-small font-bold", a.offset_hari > 0 ? "bg-warn text-on-warn" : "bg-inverse text-accent")}>{hari(a.offset_hari)}</span>
+                    <span className={cx("w-16 rounded-pill py-1.5 text-center text-small font-bold", a.day_offset > 0 ? "bg-warn text-on-warn" : "bg-inverse text-accent")}>{hari(a.day_offset)}</span>
                     <div>
-                      <div className="text-body font-bold">{a.judul}</div>
-                      <div className="text-small text-fg-muted">{a.keterangan}</div>
+                      <div className="text-body font-bold">{a.title}</div>
+                      <div className="text-small text-fg-muted">{a.description}</div>
                     </div>
                   </li>
                 ))}
@@ -99,7 +99,7 @@ export default function PengingatPage() {
           </div>
           <div className="flex flex-col gap-6">
             <Card title="Template Pesan WhatsApp">
-              <ChipGroup value={tpl} onChange={(v) => { setTpl(v); setDraft(null); }} options={data.template.map((t) => ({ value: t.kode, label: LABEL[t.kode] ?? t.kode }))} />
+              <ChipGroup value={tpl} onChange={(v) => { setTpl(v); setDraft(null); }} options={data.templates.map((t) => ({ value: t.code, label: LABEL[t.code] ?? t.code }))} />
               <div className="mt-4 rounded-[12px] bg-canvas p-5">
                 {edit ? (
                   <Textarea className="min-h-[200px]" value={isi} onChange={(e) => setDraft(e.target.value)} />
@@ -122,13 +122,13 @@ export default function PengingatPage() {
                     <Button onClick={simpanTemplate}>Simpan Template</Button>
                   </div>
                 ) : (
-                  <Button variant="outline" onClick={() => setDraft(cur?.isi ?? "")}>Ubah Template</Button>
+                  <Button variant="outline" onClick={() => setDraft(cur?.body ?? "")}>Ubah Template</Button>
                 )}
               </div>
             </Card>
             <Card title="Log Pengiriman Hari Ini">
               <div className="grid grid-cols-3 gap-3">
-                {[["Terkirim", data.statistik.terkirim], ["Dibaca", data.statistik.dibaca], ["Gagal", data.statistik.gagal]].map(([l, v], i) => (
+                {[["Terkirim", data.stats.sent], ["Dibaca", data.stats.read], ["Gagal", data.stats.failed]].map(([l, v], i) => (
                   <div key={l} className="rounded-ctl bg-canvas px-4 py-3">
                     <div className="text-small text-fg-muted">{l}</div>
                     <div className={cx("text-mobile font-bold", i === 2 && "text-warn-text")}>{v}</div>
@@ -136,13 +136,13 @@ export default function PengingatPage() {
                 ))}
               </div>
               <ul className="mt-4">
-                {data.log.map((l) => (
+                {data.logs.map((l) => (
                   <li key={l.id} className="flex items-center justify-between py-2">
                     <div>
-                      <div className="text-body-sm font-bold">{l.anggota}</div>
-                      <div className="text-caption text-fg-subtle">{l.saluran === "sms" ? "SMS" : "WhatsApp"} · {jam(l.dikirim_pada)}</div>
+                      <div className="text-body-sm font-bold">{l.member_name}</div>
+                      <div className="text-caption text-fg-subtle">{l.channel === "sms" ? "SMS" : "WhatsApp"} · {jam(l.sent_at)}</div>
                     </div>
-                    {l.status === "gagal" ? <Badge tone="warn-outline">Gagal{l.keterangan ? ` — ${l.keterangan.toLowerCase()}` : ""}</Badge> : <span className="text-small font-bold text-fg-muted">{l.status === "dibaca" ? "Dibaca" : "Terkirim"}</span>}
+                    {l.status === "gagal" ? <Badge tone="warn-outline">Gagal{l.notes ? ` — ${l.notes.toLowerCase()}` : ""}</Badge> : <span className="text-small font-bold text-fg-muted">{l.status === "dibaca" ? "Dibaca" : "Terkirim"}</span>}
                   </li>
                 ))}
               </ul>

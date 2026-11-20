@@ -48,6 +48,7 @@ export function StatCard({
   value,
   note,
   inverse,
+  tone,
   noteTone,
   children,
 }: {
@@ -55,16 +56,19 @@ export function StatCard({
   value: React.ReactNode;
   note?: React.ReactNode;
   inverse?: boolean;
+  /** Kartu berwarna dari token yang sudah ada: `accent` (kuning) atau `warn` (oranye). Bentuk & ukuran tetap sama. */
+  tone?: "accent" | "warn";
   noteTone?: "warn";
   children?: React.ReactNode;
 }) {
+  const berwarna = tone === "accent" ? "bg-accent text-on-accent" : tone === "warn" ? "bg-warn text-on-warn" : null;
   return (
-    <div className={cx("flex flex-col gap-2 rounded-card p-5", inverse ? "bg-inverse" : "border border-line-subtle bg-card")}>
-      <span className={cx("text-body-sm font-medium", inverse ? "text-fg-inverse-muted" : "text-fg-muted")}>{label}</span>
-      <span className={cx("text-kpi font-bold", inverse ? "text-accent" : "text-fg")}>{value}</span>
+    <div className={cx("flex flex-col gap-2 rounded-card p-5", berwarna ?? (inverse ? "bg-inverse" : "border border-line-subtle bg-card"))}>
+      <span className={cx("text-body-sm font-medium", berwarna ? "opacity-80" : inverse ? "text-fg-inverse-muted" : "text-fg-muted")}>{label}</span>
+      <span className={cx("text-kpi font-bold", !berwarna && (inverse ? "text-accent" : "text-fg"))}>{value}</span>
       {children}
       {note && (
-        <span className={cx("text-small", noteTone === "warn" ? "font-medium text-warn-text" : inverse ? "text-fg-inverse-muted" : "text-fg-muted")}>
+        <span className={cx("text-small", berwarna ? "opacity-80" : noteTone === "warn" ? "font-medium text-warn-text" : inverse ? "text-fg-inverse-muted" : "text-fg-muted")}>
           {note}
         </span>
       )}
