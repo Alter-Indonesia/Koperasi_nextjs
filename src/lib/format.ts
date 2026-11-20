@@ -12,6 +12,9 @@ export function rupiahRingkas(n: number | null | undefined) {
   return rupiah(v);
 }
 
+export type TenorUnit = "bulan" | "hari";
+/** "12 bulan" / "30 hari"; short: "12 bln" / "30 hr" */
+export const tenorLabel = (duration: number, unit: TenorUnit, short = false) => `${duration} ${short ? (unit === "hari" ? "hr" : "bln") : unit}`;
 export const angka = (n: number | null | undefined) => rp.format(n ?? 0);
 export const persen = (n: number | null | undefined, d = 1) => `${dec((n ?? 0) * 100, d)}%`;
 
@@ -42,6 +45,8 @@ export const isoHariIni = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+/** Jumlah hari dari tanggal `dari` ke `ke` (YYYY-MM-DD). */
+export const selisihHari = (dari: string, ke: string) => Math.round((parse(ke).getTime() - parse(dari).getTime()) / 864e5);
 export const tambahHari = (iso: string, n: number) => {
   const d = parse(iso);
   d.setDate(d.getDate() + n);

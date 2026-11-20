@@ -27,10 +27,13 @@ export function SearchInput({
   );
 }
 
-export function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+export function Field({ label, error, wajib, children }: { label: string; error?: string; wajib?: boolean; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-2">
-      <span className="text-body-sm font-bold text-fg">{label}</span>
+      <span className="text-body-sm font-bold text-fg">
+        {label}
+        {wajib && <span className="ml-0.5 text-warn-text" aria-label="wajib diisi">*</span>}
+      </span>
       {children}
       {error && <span className="text-small font-medium text-warn-text">{error}</span>}
     </label>
@@ -41,7 +44,7 @@ export function Field({ label, error, children }: { label: string; error?: strin
  * Design system: Input/Text — tinggi 52 (size/control-xl), radius 10, border 1.5.
  * `compact`: tinggi 40 (size/control-md) untuk filter di header/toolbar. Lebar diatur oleh pembungkus.
  */
-const inputBase = "w-full rounded-ctl bg-card text-fg outline-none focus:border-fg placeholder:text-fg-subtle";
+const inputBase = "w-full rounded-ctl bg-card text-fg outline-none focus:border-fg placeholder:text-fg-subtle disabled:cursor-default disabled:bg-canvas";
 const inputSize = { xl: "h-[52px] border-[1.5px] border-line px-4 text-body", compact: "h-10 border border-line px-3 text-body-sm" } as const;
 type Ukuran = { ukuran?: keyof typeof inputSize };
 
@@ -54,7 +57,7 @@ export const Select = ({ ukuran = "xl", className, ...p }: React.SelectHTMLAttri
 );
 
 export const Textarea = (p: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-  <textarea {...p} className={cx("min-h-20 w-full rounded-ctl border border-line bg-card px-4 py-3 text-body-sm text-fg outline-none focus:border-fg placeholder:text-fg-subtle", p.className)} />
+  <textarea {...p} className={cx("min-h-20 w-full rounded-ctl border border-line bg-card px-4 py-3 text-body-sm text-fg outline-none focus:border-fg placeholder:text-fg-subtle disabled:cursor-default disabled:bg-canvas", p.className)} />
 );
 
 /** Design system: Toggle/On · Toggle/Off — 44×24, knob 20 */

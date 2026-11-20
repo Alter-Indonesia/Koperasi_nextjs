@@ -1,50 +1,63 @@
 import { q, one } from "@/lib/db";
-import { dateParam, handle, ok, ROLES } from "@/lib/http";
+import { dateParam, handle, ok } from "@/lib/http";
 
-// GET /api/v1/jatuh-tempo?tanggal=YYYY-MM-DD&status=semua|belum|telat
+// GET /api/v1/jatuh-tempo?date=YYYY-MM-DD&status=all|unpaid|overdue&q=&bucket=overdue|today|tomorrow|h3
 // Daftar angsuran yang jatuh tempo pada tanggal tsb + tunggakan sebelumnya, dengan ringkasan mingguan.
+//  q      : cari nama anggota, no. pinjaman, atau nama petugas
+//  bucket : daftar angsuran di balik satu kartu ringkasan (mengabaikan status); jumlahnya sama dengan summary.*_count
 export const GET = handle(async (req: Request) => {
   const sp = new URL(req.url).searchParams;
-  const tgl = dateParam(sp.get("tanggal"));
-  const status = ["belum", "telat"].includes(sp.get("status") ?? "") ? sp.get("status") : "semua";
-  const [hari, minggu, ringkas, rows] = await Promise.all([
-    one<{ d: string }>("SELECT COALESCE($1::date, CURRENT_DATE)::text AS d", [tgl]),
+  const date = dateParam(sp.get("date"));
+  const status = ["unpaid", "overdue"].includes(sp.get("status") ?? "") ? sp.get("status") : "all";
+  const bucket = ["overdue", "today", "tomorrow", "h3"].find((b) => b === sp.get("bucket")) ?? null;
+  const search = sp.get("q")?.trim() || null;
+  const [day, week, summary, rows] = await Promise.all([
+    one<{ d: string }>("SELECT COALESCE($1::date, CURRENT_DATE)::text AS d", [date]),
     q(`WITH h AS (SELECT COALESCE($1::date, CURRENT_DATE) AS d),
-            w AS (SELECT generate_series(date_trunc('week', (SELECT d FROM h))::date, date_trunc('week', (SELECT d FROM h))::date + 6, '1 day')::date AS tanggal)
-       SELECT w.tanggal::text AS tanggal,
-              (SELECT COUNT(*) FROM angsuran a JOIN pinjaman p ON p.id = a.pinjaman_id WHERE p.status = 'aktif' AND a.jatuh_tempo = w.tanggal) AS jumlah
-       FROM w ORDER BY w.tanggal`, [tgl]),
+            w AS (SELECT generate_series(date_trunc('week', (SELECT d FROM h))::date, date_trunc('week', (SELECT d FROM h))::date + 6, '1 day')::date AS day)
+       SELECT w.day::text AS date,
+              (SELECT COUNT(*) FROM installments i JOIN loans l ON l.id = i.loan_id WHERE l.status = 'aktif' AND l.deleted_at IS NULL AND i.due_date = w.day) AS count
+       FROM w ORDER BY w.day`, [date]),
     one(`WITH h AS (SELECT COALESCE($1::date, CURRENT_DATE) AS d)
          SELECT
-           COUNT(*) FILTER (WHERE a.status = 'belum' AND a.jatuh_tempo < h.d) AS lewat,
-           COALESCE(SUM(a.total) FILTER (WHERE a.status = 'belum' AND a.jatuh_tempo < h.d),0) AS lewat_nominal,
-           COUNT(*) FILTER (WHERE a.jatuh_tempo = h.d) AS hari_ini,
-           COALESCE(SUM(a.total) FILTER (WHERE a.jatuh_tempo = h.d),0) AS hari_ini_nominal,
-           COUNT(*) FILTER (WHERE a.jatuh_tempo = h.d + 1) AS besok,
-           COALESCE(SUM(a.total) FILTER (WHERE a.jatuh_tempo = h.d + 1),0) AS besok_nominal,
-           COUNT(*) FILTER (WHERE a.jatuh_tempo = h.d + 3) AS h3,
-           COALESCE(SUM(a.total) FILTER (WHERE a.jatuh_tempo = h.d + 3),0) AS h3_nominal
-         FROM angsuran a JOIN pinjaman p ON p.id = a.pinjaman_id, h
-         WHERE p.status = 'aktif'`, [tgl]),
+           COUNT(*) FILTER (WHERE i.status = 'belum' AND i.due_date < h.d) AS overdue_count,
+           COALESCE(SUM(i.total_amount) FILTER (WHERE i.status = 'belum' AND i.due_date < h.d),0) AS overdue_amount,
+           COUNT(*) FILTER (WHERE i.due_date = h.d) AS today_count,
+           COALESCE(SUM(i.total_amount) FILTER (WHERE i.due_date = h.d),0) AS today_amount,
+           COUNT(*) FILTER (WHERE i.due_date = h.d + 1) AS tomorrow_count,
+           COALESCE(SUM(i.total_amount) FILTER (WHERE i.due_date = h.d + 1),0) AS tomorrow_amount,
+           COUNT(*) FILTER (WHERE i.due_date = h.d + 3) AS h3_count,
+           COALESCE(SUM(i.total_amount) FILTER (WHERE i.due_date = h.d + 3),0) AS h3_amount
+         FROM installments i JOIN loans l ON l.id = i.loan_id, h
+         WHERE l.status = 'aktif' AND l.deleted_at IS NULL`, [date]),
     q(`WITH h AS (SELECT COALESCE($1::date, CURRENT_DATE) AS d)
-       SELECT a.id, a.ke, a.jatuh_tempo, a.total, a.status, p.tenor, p.no_pinjaman,
-              ag.nama AS anggota, w.nama AS wilayah,
-              COALESCE(tp.nama, wp.nama) AS petugas,
-              GREATEST(0, (SELECT d FROM h) - a.jatuh_tempo) AS hari_telat,
-              lg.saluran AS pengingat_saluran, lg.status AS pengingat_status
-       FROM angsuran a
-       JOIN pinjaman p ON p.id = a.pinjaman_id AND p.status = 'aktif'
-       JOIN anggota ag ON ag.id = p.anggota_id
-       JOIN wilayah w ON w.id = ag.wilayah_id
-       LEFT JOIN LATERAL (SELECT u.nama FROM penugasan t JOIN pengguna u ON u.id = t.petugas_id WHERE t.angsuran_id = a.id ORDER BY t.tanggal DESC LIMIT 1) tp ON true
-       LEFT JOIN LATERAL (SELECT u.nama FROM pengguna u WHERE u.role = 'petugas' AND u.wilayah_id = ag.wilayah_id LIMIT 1) wp ON true
-       LEFT JOIN LATERAL (SELECT l.saluran, l.status FROM pengingat_log l WHERE l.angsuran_id = a.id ORDER BY l.dikirim_pada DESC LIMIT 1) lg ON true
-       WHERE (a.jatuh_tempo = (SELECT d FROM h) OR (a.status = 'belum' AND a.jatuh_tempo < (SELECT d FROM h)))
-         AND ($2 = 'semua'
-              OR ($2 = 'belum' AND a.status = 'belum' AND a.jatuh_tempo = (SELECT d FROM h))
-              OR ($2 = 'telat' AND a.status = 'belum' AND a.jatuh_tempo < (SELECT d FROM h)))
-       ORDER BY (a.status <> 'belum'), a.jatuh_tempo DESC, ag.nama
-       LIMIT 200`, [tgl, status]),
+       SELECT * FROM (
+       SELECT i.id, i.loan_id, i.sequence, i.due_date, i.total_amount, i.status, l.tenor_duration, l.tenor_unit, l.loan_number,
+              m.name AS member_name, r.name AS region_name,
+              COALESCE(ac.name, rc.name) AS collector_name,
+              GREATEST(0, (SELECT d FROM h) - i.due_date) AS days_overdue,
+              lg.channel AS reminder_channel, lg.status AS reminder_status
+       FROM installments i
+       JOIN loans l ON l.id = i.loan_id AND l.status = 'aktif' AND l.deleted_at IS NULL
+       JOIN members m ON m.id = l.member_id
+       JOIN regions r ON r.id = m.region_id
+       LEFT JOIN LATERAL (SELECT u.name FROM assignments t JOIN users u ON u.id = t.collector_id WHERE t.installment_id = i.id ORDER BY t.assigned_on DESC LIMIT 1) ac ON true
+       LEFT JOIN LATERAL (SELECT u.name FROM users u WHERE u.role = 'petugas' AND u.region_id = m.region_id LIMIT 1) rc ON true
+       LEFT JOIN LATERAL (SELECT g.channel, g.status FROM reminder_logs g WHERE g.installment_id = i.id ORDER BY g.sent_at DESC LIMIT 1) lg ON true
+       WHERE CASE $3::text
+         WHEN 'overdue' THEN i.status = 'belum' AND i.due_date < (SELECT d FROM h)
+         WHEN 'today' THEN i.due_date = (SELECT d FROM h)
+         WHEN 'tomorrow' THEN i.due_date = (SELECT d FROM h) + 1
+         WHEN 'h3' THEN i.due_date = (SELECT d FROM h) + 3
+         ELSE (i.due_date = (SELECT d FROM h) OR (i.status = 'belum' AND i.due_date < (SELECT d FROM h)))
+              AND ($2 = 'all'
+                   OR ($2 = 'unpaid' AND i.status = 'belum' AND i.due_date = (SELECT d FROM h))
+                   OR ($2 = 'overdue' AND i.status = 'belum' AND i.due_date < (SELECT d FROM h)))
+       END
+       ) x
+       WHERE ($4::text IS NULL OR x.member_name ILIKE '%' || $4 || '%' OR x.loan_number ILIKE '%' || $4 || '%' OR x.collector_name ILIKE '%' || $4 || '%')
+       ORDER BY (x.status <> 'belum'), x.due_date DESC, x.member_name
+       LIMIT 200`, [date, status, bucket, search]),
   ]);
-  return ok(rows, { tanggal: hari?.d, minggu, ringkas, status });
-}, { roles: ROLES.admin });
+  return ok(rows, { date: day?.d, week, summary, status });
+}, { module: "due_dates" });

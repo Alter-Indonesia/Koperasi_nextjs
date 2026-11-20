@@ -1,48 +1,48 @@
 import { z } from "zod";
 import { q, one } from "@/lib/db";
-import { body, created, dateParam, handle, HttpError, ok, ROLES } from "@/lib/http";
-import { BEBAN_MAKS_PETUGAS as BEBAN_MAKS, TAGIHAN_TERBUKA } from "@/lib/queries";
+import { body, created, currentUser, dateParam, handle, HttpError, ok } from "@/lib/http";
+import { MAX_COLLECTOR_LOAD, TAGIHAN_TERBUKA } from "@/lib/queries";
 
-// GET /api/v1/penugasan?tanggal=YYYY-MM-DD (default: besok)
+// GET /api/v1/penugasan?date=YYYY-MM-DD (default: besok)
 export const GET = handle(async (req: Request) => {
-  const tgl = dateParam(new URL(req.url).searchParams.get("tanggal"));
-  const tanggal = (await one<{ d: string }>("SELECT COALESCE($1::date, CURRENT_DATE + 1)::text AS d", [tgl]))!.d;
-  const [belum, petugas, tugas] = await Promise.all([
+  const dateInput = dateParam(new URL(req.url).searchParams.get("date"));
+  const date = (await one<{ d: string }>("SELECT COALESCE($1::date, CURRENT_DATE + 1)::text AS d", [dateInput]))!.d;
+  const [unassigned, collectors, tasks] = await Promise.all([
     q(`SELECT t.* FROM (${TAGIHAN_TERBUKA}) t
-       WHERE NOT EXISTS (SELECT 1 FROM penugasan s WHERE s.angsuran_id = t.id AND s.tanggal = $1::date)
-       ORDER BY t.jatuh_tempo, t.anggota`, [tanggal]),
-    q(`SELECT u.id, u.kode, u.nama, u.wilayah_id, w.nama AS wilayah
-       FROM pengguna u LEFT JOIN wilayah w ON w.id = u.wilayah_id
-       WHERE u.role = 'petugas' AND u.status = 'aktif' ORDER BY u.nama`),
-    q(`SELECT s.petugas_id, a.id AS angsuran_id, a.total, ag.nama AS anggota
-       FROM penugasan s JOIN angsuran a ON a.id = s.angsuran_id
-       JOIN pinjaman p ON p.id = a.pinjaman_id JOIN anggota ag ON ag.id = p.anggota_id
-       WHERE s.tanggal = $1::date ORDER BY a.total DESC`, [tanggal]),
+       WHERE NOT EXISTS (SELECT 1 FROM assignments s WHERE s.installment_id = t.id AND s.assigned_on = $1::date)
+       ORDER BY t.due_date, t.member_name`, [date]),
+    q(`SELECT u.id, u.code, u.name, u.region_id, r.name AS region_name
+       FROM users u LEFT JOIN regions r ON r.id = u.region_id
+       WHERE u.role = 'petugas' AND u.status = 'aktif' AND u.deleted_at IS NULL ORDER BY u.name`),
+    q(`SELECT s.collector_id, i.id AS installment_id, i.total_amount, m.name AS member_name
+       FROM assignments s JOIN installments i ON i.id = s.installment_id
+       JOIN loans l ON l.id = i.loan_id JOIN members m ON m.id = l.member_id
+       WHERE s.assigned_on = $1::date ORDER BY i.total_amount DESC`, [date]),
   ]);
-  const byPetugas = petugas.map((p) => {
-    const list = tugas.filter((t) => t.petugas_id === p.id);
-    return { ...p, beban: list.length, beban_maks: BEBAN_MAKS, tugas: list };
+  const byCollector = collectors.map((c) => {
+    const list = tasks.filter((t) => t.collector_id === c.id);
+    return { ...c, load: list.length, max_load: MAX_COLLECTOR_LOAD, tasks: list };
   });
-  return ok({ tanggal, belum, petugas: byPetugas });
-}, { roles: ROLES.admin });
+  return ok({ date, unassigned, collectors: byCollector });
+}, { module: "assignments" });
 
-const Tugaskan = z.object({
-  tanggal: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  petugas_id: z.number().int().positive(),
-  angsuran_ids: z.array(z.number().int().positive()).min(1).max(200),
+const Assign = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  collector_id: z.number().int().positive(),
+  installment_ids: z.array(z.number().int().positive()).min(1).max(200),
 });
 
 // POST /api/v1/penugasan — tugaskan angsuran terpilih ke satu petugas
 export const POST = handle(async (req: Request) => {
-  const d = await body(req, Tugaskan);
-  const p = await one("SELECT id FROM pengguna WHERE id = $1 AND role = 'petugas' AND status = 'aktif'", [d.petugas_id]);
+  const d = await body(req, Assign);
+  const p = await one("SELECT id FROM users WHERE id = $1 AND role = 'petugas' AND status = 'aktif' AND deleted_at IS NULL", [d.collector_id]);
   if (!p) throw new HttpError(404, "Petugas tidak ditemukan");
   const rows = await q(
-    `INSERT INTO penugasan (angsuran_id, petugas_id, tanggal)
-     SELECT a.id, $1, $2::date FROM angsuran a WHERE a.id = ANY($3::int[]) AND a.status = 'belum'
-     ON CONFLICT (angsuran_id, tanggal) DO UPDATE SET petugas_id = EXCLUDED.petugas_id
+    `INSERT INTO assignments (installment_id, collector_id, assigned_on, created_by, updated_by)
+     SELECT i.id, $1, $2::date, $4::int, $4::int FROM installments i WHERE i.id = ANY($3::int[]) AND i.status = 'belum'
+     ON CONFLICT (installment_id, assigned_on) DO UPDATE SET collector_id = EXCLUDED.collector_id, updated_by = EXCLUDED.updated_by
      RETURNING id`,
-    [d.petugas_id, d.tanggal, d.angsuran_ids],
+    [d.collector_id, d.date, d.installment_ids, currentUser().id],
   );
-  return created({ ditugaskan: rows.length });
-}, { roles: ROLES.admin });
+  return created({ assigned: rows.length });
+}, { module: "assignments" });

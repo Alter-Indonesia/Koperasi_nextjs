@@ -11,18 +11,21 @@ import { Textarea } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
 import { api, ApiError, umumkanPembayaranBerubah, useApi, useHash } from "@/lib/api";
 import { jam, rupiah, tanggalPanjang } from "@/lib/format";
+import { withFreshState } from "@/components/layout/FreshState";
+import { useSession } from "@/lib/session";
 
 type Status = "menunggu" | "terverifikasi" | "ditolak";
-type Item = { id: number; nominal: number; metode: string; keterangan_metode: string | null; dibayar_pada: string; anggota: string; no_pinjaman: string; ke: number; tenor: number; petugas: string | null; status: Status };
-type Meta = { jumlah: Record<Status, number> };
+type Item = { id: number; amount: number; method: string; method_note: string | null; paid_at: string; member_name: string; loan_number: string; installment_sequence: number; tenor_duration: number; collector_name: string | null; status: Status };
+type Meta = { counts: Record<Status, number> };
 type Detail = {
-  id: number; nominal: number; denda: number; metode: string; keterangan_metode: string | null; dibayar_pada: string; foto_bukti: string | null; lokasi: string | null; lat: number | null; lng: number | null;
-  catatan: string | null; status: Status; catatan_verifikasi: string | null; diverifikasi_pada: string | null; ke: number; tagihan: number; tenor: number; no_pinjaman: string; anggota: string; alamat: string; wilayah: string;
-  petugas: string | null; verifikator: string | null; sisa_sebelum: number; sisa_sesudah: number;
+  id: number; amount: number; penalty_amount: number; method: string; method_note: string | null; paid_at: string; proof_image: string | null; location_name: string | null; lat: number | null; lng: number | null;
+  notes: string | null; status: Status; verification_notes: string | null; verified_at: string | null; installment_sequence: number; installment_total: number; tenor_duration: number; loan_number: string; member_name: string; member_address: string; region_name: string;
+  collector_name: string | null; verifier_name: string | null; balance_before: number; balance_after: number;
 };
 const METODE: Record<string, string> = { tunai: "Tunai", transfer: "Transfer", qris: "QRIS" };
 
-export default function VerifikasiPage() {
+function VerifikasiPage() {
+  const { can } = useSession();
   const [status, setStatus] = useState<Status>("menunggu");
   const [pilih, setPilih] = useState<number | null>(null);
   const [catatan, setCatatan] = useState("");
@@ -41,7 +44,7 @@ export default function VerifikasiPage() {
     if (!aktif) return;
     setBusy(true);
     try {
-      await api.post(`/api/v1/pembayaran/${aktif}/verifikasi`, { aksi, catatan: catatan || undefined });
+      await api.post(`/api/v1/pembayaran/${aktif}/verifikasi`, { action: aksi === "verifikasi" ? "verify" : "reject", notes: catatan || undefined });
       setToast({ m: aksi === "verifikasi" ? "Pembayaran terverifikasi · saldo pinjaman diperbarui" : "Pembayaran ditolak · angsuran masuk penagihan ulang", t: aksi === "verifikasi" ? "ok" : "warn" });
       pilihItem(null);
       if (hash) history.replaceState(null, "", window.location.pathname);
@@ -54,7 +57,7 @@ export default function VerifikasiPage() {
     }
   }
 
-  const j = list.meta?.jumlah;
+  const j = list.meta?.counts;
   const d = detail.data;
   return (
     <>
@@ -70,7 +73,7 @@ export default function VerifikasiPage() {
         }
       />
       {list.error && <ErrorBox message={list.error} onRetry={list.reload} />}
-      <div className="grid grid-cols-[420px_1fr] gap-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
         <section className="rounded-card bg-card p-3">
           <div className="flex items-center justify-between px-2 pt-2 pb-3">
             <h2 className="text-title font-bold">Antrean ({list.data?.length ?? 0})</h2>
@@ -85,14 +88,14 @@ export default function VerifikasiPage() {
                   onClick={() => pilihItem(it.id)}
                   className={cx("flex w-full cursor-pointer items-center gap-3 rounded-[12px] px-3 py-3 text-left", it.id === aktif ? "border-2 border-accent" : "border-2 border-transparent hover:bg-canvas")}
                 >
-                  <Avatar name={it.anggota} size={36} tone={avatarTone(i)} />
+                  <Avatar name={it.member_name} size={36} tone={avatarTone(i)} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-body font-bold">{it.anggota}</div>
+                    <div className="truncate text-body font-bold">{it.member_name}</div>
                     <div className="truncate text-small text-fg-subtle">
-                      {METODE[it.metode]}{it.petugas ? ` · via ${it.petugas.split(" ")[0]}` : it.keterangan_metode ? ` · ${it.keterangan_metode.replace("Transfer ", "")}` : ""} · {jam(it.dibayar_pada)}
+                      {METODE[it.method]}{it.collector_name ? ` · via ${it.collector_name.split(" ")[0]}` : it.method_note ? ` · ${it.method_note.replace("Transfer ", "")}` : ""} · {jam(it.paid_at)}
                     </div>
                   </div>
-                  <b className="text-body-sm">{rupiah(it.nominal)}</b>
+                  <b className="text-body-sm">{rupiah(it.amount)}</b>
                 </button>
               </li>
             ))}
@@ -106,30 +109,30 @@ export default function VerifikasiPage() {
             <>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-mobile font-bold">{d.anggota}</h2>
-                  <p className="mt-1 text-body-sm text-fg-muted">{d.no_pinjaman}  ·  Angsuran ke-{d.ke} dari {d.tenor}  ·  Wil. {d.wilayah}</p>
+                  <h2 className="text-mobile font-bold">{d.member_name}</h2>
+                  <p className="mt-1 text-body-sm text-fg-muted">{d.loan_number}  ·  Angsuran ke-{d.installment_sequence} dari {d.tenor_duration}  ·  Wil. {d.region_name}</p>
                 </div>
                 {d.status === "menunggu" ? <Badge tone="warn-outline" className="px-3 py-1.5 text-small">Menunggu verifikasi</Badge> : d.status === "terverifikasi" ? <Badge tone="sudah-bayar">Terverifikasi</Badge> : <Badge tone="telat">Ditolak</Badge>}
               </div>
-              <div className="mt-6 grid grid-cols-[300px_1fr] gap-6">
+              <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[300px_minmax(0,1fr)]">
                 <div>
                   <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-[12px] bg-line-subtle text-fg-muted">
                     <FileImage size={40} strokeWidth={1.5} />
-                    <span className="text-body-sm font-bold">{d.foto_bukti ?? "Tidak ada foto"}</span>
+                    <span className="text-body-sm font-bold">{d.proof_image ?? "Tidak ada foto"}</span>
                     <span className="text-small">Pratinjau foto bukti</span>
                   </div>
                   <p className="mt-2 flex items-center gap-1.5 text-caption text-fg-subtle">
                     <MapPin size={12} strokeWidth={1.5} />
-                    {tanggalPanjang(d.dibayar_pada)}, {jam(d.dibayar_pada)}{d.lat ? ` · GPS ${d.lat}, ${d.lng}` : ""}
+                    {tanggalPanjang(d.paid_at)}, {jam(d.paid_at)}{d.lat ? ` · GPS ${d.lat}, ${d.lng}` : ""}
                   </p>
                 </div>
                 <dl className="flex flex-col gap-4">
                   {[
-                    ["Nominal diterima", rupiah(d.nominal + d.denda)],
-                    ["Rincian", `Angsuran ${rupiah(d.tagihan)}${d.denda ? ` + denda ${rupiah(d.denda)}` : ""}`],
-                    ["Metode", d.metode === "tunai" ? "Tunai (diterima petugas)" : d.keterangan_metode ?? METODE[d.metode]],
-                    ["Petugas", d.petugas ?? "—"],
-                    ["Lokasi", d.lokasi ? `${d.lokasi} ✓` : "—"],
+                    ["Nominal diterima", rupiah(d.amount + d.penalty_amount)],
+                    ["Rincian", `Angsuran ${rupiah(d.installment_total)}${d.penalty_amount ? ` + denda ${rupiah(d.penalty_amount)}` : ""}`],
+                    ["Metode", d.method === "tunai" ? "Tunai (diterima petugas)" : d.method_note ?? METODE[d.method]],
+                    ["Petugas", d.collector_name ?? "—"],
+                    ["Lokasi", d.location_name ? `${d.location_name} ✓` : "—"],
                   ].map(([l, v]) => (
                     <div key={l}>
                       <dt className="text-small text-fg-muted">{l}</dt>
@@ -139,14 +142,14 @@ export default function VerifikasiPage() {
                   <div className="rounded-[12px] bg-canvas p-4">
                     <div className="text-body-sm font-bold">{d.status === "menunggu" ? "Setelah diverifikasi" : "Status"}</div>
                     <div className="mt-2 text-small text-fg-muted">Sisa pinjaman</div>
-                    <div className="text-body font-bold">{d.status === "menunggu" ? `${rupiah(d.sisa_sebelum)}  →  ${rupiah(d.sisa_sesudah)}` : rupiah(d.sisa_sesudah)}</div>
+                    <div className="text-body font-bold">{d.status === "menunggu" ? `${rupiah(d.balance_before)}  →  ${rupiah(d.balance_after)}` : rupiah(d.balance_after)}</div>
                     <div className="mt-1 text-caption text-fg-muted">
-                      {d.status === "menunggu" ? "Kartu pinjaman & riwayat diperbarui otomatis" : `Diproses ${d.verifikator ?? ""}${d.catatan_verifikasi ? ` · ${d.catatan_verifikasi}` : ""}`}
+                      {d.status === "menunggu" ? "Kartu pinjaman & riwayat diperbarui otomatis" : `Diproses ${d.verifier_name ?? ""}${d.verification_notes ? ` · ${d.verification_notes}` : ""}`}
                     </div>
                   </div>
                 </dl>
               </div>
-              {d.status === "menunggu" && (
+              {d.status === "menunggu" && can("payments", "update") && (
                 <>
                   <label className="mt-6 block">
                     <span className="text-body-sm font-bold">Catatan verifikasi</span>
@@ -166,3 +169,5 @@ export default function VerifikasiPage() {
     </>
   );
 }
+
+export default withFreshState(VerifikasiPage, { module: "payments" });
