@@ -6,6 +6,7 @@
     "dev": "next dev -p 3100",
     "build": "next build",
     "start": "next start -p 3100",
+    "version:check": "node -e \"const v=require('./package.json').version; if(!/^\\d+\\.\\d+\\.\\d+$/.test(v)) process.exit(1); console.log(v)\"",
     "lint": "eslint",
     "db:setup": "node --env-file=.env.local scripts/db.mjs setup",
     "db:migrate": "node --env-file=.env.local scripts/db.mjs migrate",
