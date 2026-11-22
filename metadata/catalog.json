@@ -1,0 +1,25 @@
+{
+  "title": "KoperasiKu",
+  "tagline": "Web Simpan Pinjam & Penagihan",
+  "description": [
+    "Next.js 16 (App Router) · REST API /api/v1 · PostgreSQL db_koperasi · design system KoperasiKu (tema Default)."
+  ],
+  "license": "MIT",
+  "language": "Bahasa Indonesia",
+  "version": "0.1.0",
+  "features": [
+    "Alur satu pinjaman lintas Anggota, Petugas, Admin, Owner (swimlane)",
+    "Admin: anggota, pinjaman, jatuh tempo, pengingat, penugasan, verifikasi, penagihan lanjutan, dan laporan",
+    "Owner: ringkasan, persetujuan pinjaman di atas Rp 20 juta, kolektibilitas & NPL, kinerja petugas, laporan keuangan, dan pengguna",
+    "Petugas: tugas harian, rute, penagihan, input pembayaran, dan setor kas",
+    "Anggota: pengajuan, jadwal angsuran, pengingat, pembayaran, verifikasi, dan simpanan",
+    "REST API /api/v1 dan dokumentasi OpenAPI"
+  ],
+  "requirements": [
+    "Node.js dengan npm",
+    "PostgreSQL pada port 5433",
+    "Database db_koperasi"
+  ],
+  "slider": [],
+  "gallery": []
+}
