@@ -1,14 +1,61 @@
 "use client";
 import { LogOut, MapPin } from "lucide-react";
+import { useState } from "react";
 import { withFreshState } from "@/components/layout/FreshState";
 import { Avatar } from "@/components/ui/Avatar";
-import { ErrorBox, Skeleton } from "@/components/ui/Feedback";
-import { Progress } from "@/components/ui/Form";
-import { useApi } from "@/lib/api";
-import { persen, rupiah, rupiahRingkas } from "@/lib/format";
+import { Button } from "@/components/ui/Button";
+import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
+import { Field, Input, Progress } from "@/components/ui/Form";
+import { api, ApiError, useApi } from "@/lib/api";
+import { persen, rupiah, rupiahRingkas, tanggal } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
-type Profil = { id: number; code: string | null; name: string; email: string; region_name: string | null; member_count: number; month: string; collected: number; visits: number; target: number; collection_rate: number; remaining: number };
+type Profil = { id: number; code: string | null; name: string; email: string; phone: string | null; status: string; joined_at: string | null; last_login_at: string | null; region_name: string | null; member_count: number; month: string; collected: number; visits: number; target: number; collection_rate: number; remaining: number };
+
+const KOSONG = { current_password: "", new_password: "", confirm: "" };
+
+/** Form ganti password sendiri; berhasil -> semua sesi diputus server, lalu masuk ulang. */
+function GantiPassword() {
+  const [f, setF] = useState(KOSONG);
+  const [err, setErr] = useState<Partial<Record<keyof typeof KOSONG, string>>>({});
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<{ m: string; t: "ok" | "warn" } | null>(null);
+  const set = (k: keyof typeof KOSONG) => (e: React.ChangeEvent<HTMLInputElement>) => setF((v) => ({ ...v, [k]: e.target.value }));
+
+  async function simpan(e: React.FormEvent) {
+    e.preventDefault();
+    const x: typeof err = {};
+    if (!f.current_password) x.current_password = "Password saat ini wajib diisi";
+    if (f.new_password.length < 8) x.new_password = "Password baru minimal 8 karakter";
+    if (f.confirm !== f.new_password) x.confirm = "Konfirmasi tidak sama dengan password baru";
+    setErr(x);
+    if (Object.keys(x).length) return;
+    setBusy(true);
+    try {
+      await api.post("/api/v1/petugas/profil/password", { current_password: f.current_password, new_password: f.new_password });
+      setF(KOSONG);
+      setToast({ m: "Password diganti · silakan masuk kembali", t: "ok" });
+      setTimeout(() => window.location.replace("/login"), 1500);
+    } catch (e) {
+      setToast({ m: e instanceof ApiError ? e.message : "Gagal mengganti password", t: "warn" });
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={simpan} className="flex flex-col gap-4 rounded-card bg-card p-5">
+      <div>
+        <p className="text-body font-bold text-fg">Ganti password</p>
+        <p className="text-body-sm text-fg-muted">Setelah diganti, Anda harus masuk kembali di semua perangkat.</p>
+      </div>
+      <Field label="Password saat ini" wajib error={err.current_password}><Input type="password" autoComplete="current-password" value={f.current_password} onChange={set("current_password")} /></Field>
+      <Field label="Password baru" wajib error={err.new_password}><Input type="password" autoComplete="new-password" value={f.new_password} onChange={set("new_password")} placeholder="Minimal 8 karakter" /></Field>
+      <Field label="Ulangi password baru" wajib error={err.confirm}><Input type="password" autoComplete="new-password" value={f.confirm} onChange={set("confirm")} /></Field>
+      <Button type="submit" variant="accent" size="lg" disabled={busy}>Simpan password</Button>
+      <Toast message={toast?.m ?? null} tone={toast?.t} onClose={() => setToast(null)} />
+    </form>
+  );
+}
 
 function ProfilPage() {
   const { logout } = useSession();
@@ -48,6 +95,24 @@ function ProfilPage() {
             <Progress value={p.collection_rate} className="mt-3" />
             <p className="mt-3 text-body-sm text-fg-muted">Sisa {rupiah(p.remaining)}</p>
           </section>
+          <section className="rounded-card bg-card p-5">
+            <p className="text-body font-bold text-fg">Biodata</p>
+            <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-body-sm">
+              {([
+                ["Nama", p.name],
+                ["Kode petugas", p.code ?? "-"],
+                ["Email", p.email],
+                ["No. HP", p.phone ?? "-"],
+                ["Wilayah tugas", p.region_name ?? "Belum ditetapkan"],
+                ["Status", p.status === "aktif" ? "Aktif" : "Nonaktif"],
+                ["Bergabung", p.joined_at ? tanggal(p.joined_at) : "-"],
+                ["Login terakhir", p.last_login_at ? tanggal(p.last_login_at) : "-"],
+              ] as const).map(([k, v]) => (
+                <div key={k} className="contents"><dt className="text-fg-muted">{k}</dt><dd className="min-w-0 truncate text-right font-bold text-fg sm:text-left">{v}</dd></div>
+              ))}
+            </dl>
+          </section>
+          <GantiPassword />
           <section className="flex flex-col rounded-card bg-card px-5">
             <div className="flex items-center gap-4 py-4">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-ctl bg-canvas text-fg"><MapPin size={16} strokeWidth={1.5} /></span>

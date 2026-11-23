@@ -147,7 +147,8 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | POST | `/petugas/tugas/{id}/bayar` | **Petugas** — catat pembayaran angsuran (`method`: tunai/transfer) → status `menunggu`, diverifikasi admin |
 | POST | `/petugas/tugas/{id}/tunda` | **Petugas** — tunda tagihan ke `promised_on` (maks. 30 hari) + `reason`; ditugaskan ulang pada tanggal itu |
 | GET, POST | `/petugas/setoran` | **Petugas** — uang tunai di tangan, rincian hari ini, riwayat · setor semua tunai ke kasir (modul `my_deposits`) |
-| GET | `/petugas/profil` | **Petugas** — profil + capaian bulan ini terhadap target (modul `my_tasks`) |
+| GET | `/petugas/profil` | **Petugas** — biodata + capaian bulan ini terhadap target (modul `my_tasks`) |
+| POST | `/petugas/profil/password` | **Petugas** — ganti password sendiri (`current_password`, `new_password`); semua sesi diputus (modul `my_tasks`) |
 | GET, POST | `/wilayah` | **Master Data** — daftar wilayah · tambah |
 | GET, PATCH, DELETE | `/wilayah/{id}` | detail · ubah · soft delete (ditolak bila masih dipakai anggota/pengguna) |
 | GET, PATCH | `/pengaturan` | **Sistem › Pengaturan** — daftar pengaturan (tabel `settings`, key/value dinamis) · ubah beberapa sekaligus `{ values: { key: nilai } }` |

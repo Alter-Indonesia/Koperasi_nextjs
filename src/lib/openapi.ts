@@ -746,7 +746,21 @@ export const openapi = {
         summary: "Profil petugas dan capaian bulan ini",
         description: "Role: Petugas (modul `my_tasks`). Target dari pengaturan `collector_monthly_target`; collection rate = tertagih bulan ini / target (0–1).",
         responses: {
-          "200": resp("Profil", data(obj({ id: integer, code: nullable(string), name: string, email: string, region_name: nullable(string), member_count: integer, month: { type: "string", example: "2026-11" }, collected: rp(), visits: integer, target: rp(), collection_rate: number, remaining: rp() }))),
+          "200": resp("Profil", data(obj({ id: integer, code: nullable(string), name: string, email: string, phone: nullable(string), status: string, joined_at: nullable(string), last_login_at: nullable(string), region_name: nullable(string), member_count: integer, month: { type: "string", example: "2026-11" }, collected: rp(), visits: integer, target: rp(), collection_rate: number, remaining: rp() }))),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/profil/password": {
+      post: {
+        tags: ["Petugas"],
+        summary: "Ganti password sendiri",
+        description: "Role: Petugas (modul `my_tasks`). Password saat ini harus benar (422 bila salah atau password baru sama). Berhasil: semua sesi login pengguna diputus, klien harus masuk ulang.",
+        requestBody: jsonBody(obj({ current_password: string, new_password: { ...string, minLength: 8, maxLength: 72 } }, ["current_password", "new_password"])),
+        responses: {
+          "200": resp("Password diganti", data(obj({ changed: { type: "boolean" } }))),
+          "400": err("Data tidak valid"),
+          "422": err("Password saat ini salah"),
           ...UNAUTH,
         },
       },
