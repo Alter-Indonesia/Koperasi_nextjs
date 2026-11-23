@@ -12,7 +12,7 @@ function KwitansiPage() {
   const { id } = useParams<{ id: string }>();
   const { data: k, error, loading, reload } = useApi<Kwitansi>(`/api/v1/petugas/pelunasan/${id}`);
   return (
-    <ReceiptView title="Bukti Pelunasan" doc={k ? docLunas(k) : null} phone={k?.member_phone ?? null} waMessage={k ? pesanLunas(k) : ""} backHref="/petugas/pelunasan" loading={loading} error={error} onRetry={reload} />
+    <ReceiptView title="Bukti Pelunasan" doc={k ? docLunas(k) : null} phone={k?.member_phone ?? null} waMessage={k ? pesanLunas(k) : ""} backHref="/petugas/anggota#pelunasan" loading={loading} error={error} onRetry={reload} />
   );
 }
 

@@ -1,8 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { withFreshState } from "@/components/layout/FreshState";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,7 +25,8 @@ const STATUS: Record<string, { label: string; tone: BadgeTone }> = {
   ditolak: { label: "Ditolak", tone: "telat" },
 };
 
-function PelunasanPage() {
+/** Isi tab Pelunasan di menu Anggota: terima pelunasan tunai dari anggota yang dipegang petugas. */
+export function PelunasanPanel() {
   const router = useRouter();
   const { can } = useSession();
   const [cari, setCari] = useState("");
@@ -57,7 +56,6 @@ function PelunasanPage() {
 
   return (
     <>
-      <PageHeader title="Pelunasan" subtitle="Terima pelunasan tunai dari anggota yang Anda pegang" />
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data ? (
         <Skeleton className="h-64" />
@@ -138,5 +136,3 @@ function PelunasanPage() {
     </>
   );
 }
-
-export default withFreshState(PelunasanPage, { module: "my_tasks" });

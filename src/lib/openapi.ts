@@ -771,6 +771,85 @@ export const openapi = {
         responses: { "201": resp("Setoran dibuat", data(obj({ id: integer, amount: rp(), payment_count: integer }))), "422": err("Tidak ada uang tunai yang perlu disetor"), ...UNAUTH },
       },
     },
+    "/api/v1/petugas/anggota": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Daftar anggota yang dipegang petugas",
+        description: "Role: Petugas (modul `my_tasks`). Hanya anggota dengan `collector_id` = petugas yang login. `status=berjalan` (default) = pinjaman aktif/pengajuan atau belum punya pinjaman; `status=lunas` = pernah berpinjaman dan semuanya sudah lunas. `q` mencari nama, no. anggota, NIK, atau no. HP.",
+        parameters: [{ name: "status", in: "query", schema: { type: "string", enum: ["berjalan", "lunas"] } }, { name: "q", in: "query", schema: string }, { name: "page", in: "query", schema: integer }, { name: "limit", in: "query", schema: integer }],
+        responses: {
+          "200": resp("Daftar anggota", data({ type: "array", items: obj({ id: integer, member_number: string, name: string, phone: nullable(string), address: nullable(string), status: string, region_name: string, active_loans: integer, paid_loans: integer, arrears_amount: rp() }) }, obj({ page: integer, limit: integer, total: integer }))),
+          ...UNAUTH,
+        },
+      },
+      post: {
+        tags: ["Petugas"],
+        summary: "Tambah anggota (beserta pinjaman) oleh petugas",
+        description: "Role: Petugas (hak `create` pada `my_tasks`). Anggota otomatis dipegang petugas ini. `loan` opsional: pinjaman langsung `aktif` dengan jadwal angsuran; di atas batas persetujuan (pengaturan `loan_approval_limit`) berstatus `pengajuan` untuk diputuskan Owner (`/persetujuan`). Foto KTP diunggah terpisah ke `/petugas/anggota/{id}/ktp`.",
+        requestBody: { required: true, content: { "application/json": { schema: obj({
+          name: string, national_id: string, phone: string, address: string, region_id: integer, biodata: ref("Biodata"), biodata_source: { type: "string", enum: ["manual", "ocr"] }, allow_partial_payment: nullable({ type: "boolean" }),
+          loan: obj({ loan_amount: rp(), tenor_id: integer, admin_fee: rp(), purpose: string, collateral: string, disbursed_on: { type: "string", example: "2026-11-23" } }, ["loan_amount", "tenor_id", "purpose", "disbursed_on"]),
+        }, ["name", "national_id", "phone", "address", "region_id"]) } } },
+        responses: {
+          "201": resp("Anggota dibuat", data(obj({ id: integer, member_number: string, name: string, loan: nullable(obj({ id: integer, loan_number: string, status: { type: "string", enum: ["aktif", "pengajuan"] } })) }))),
+          "400": err("Validasi gagal"),
+          "409": err("NIK sudah terdaftar"),
+          "422": err("Wilayah/tenor tidak tersedia atau aturan pinjaman dilanggar"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/anggota/opsi": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Pilihan form anggota baru",
+        description: "Role: Petugas (modul `my_tasks`). Wilayah, tenor aktif, perlakuan biaya admin, plafon, dan batas persetujuan Owner.",
+        responses: {
+          "200": resp("Pilihan form", data(obj({ regions: { type: "array", items: obj({ id: integer, name: string }) }, tenors: { type: "array", items: obj({ id: integer, duration: integer, unit: string, interest_rate_percent: number, label: nullable(string) }) }, admin_fee_mode: string, approval_limit: rp(), ceiling: rp() }))),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/anggota/baca-ktp": {
+      post: {
+        tags: ["Petugas"],
+        summary: "Baca foto KTP (OCR) oleh petugas",
+        description: "Role: Petugas (hak `create` pada `my_tasks`). Sama dengan `POST /anggota/baca-ktp`: hanya membaca, tidak menyimpan.",
+        requestBody: FOTO_BODY,
+        responses: {
+          "200": resp("Hasil bacaan", data(obj({ national_id: nullable(string), biodata: ref("Biodata") }), obj({ fields_read: integer }))),
+          "400": err("Berkas tidak dikirim"),
+          "413": err("Foto lebih dari 5 MB"),
+          "415": err("Bukan JPG/PNG/WebP"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/anggota/{id}/ktp": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Ambil foto KTP anggota yang dipegang petugas",
+        description: "Role: Petugas (modul `my_tasks`). Mengembalikan berkas gambar; 404 bila anggota bukan milik petugas ini.",
+        parameters: [idPath("ID anggota")],
+        responses: {
+          "200": { description: "Gambar KTP", content: { "image/jpeg": { schema: { type: "string", format: "binary" } }, "image/png": { schema: { type: "string", format: "binary" } }, "image/webp": { schema: { type: "string", format: "binary" } } } },
+          "404": err("Anggota / foto tidak ditemukan"),
+          ...UNAUTH,
+        },
+      },
+      post: {
+        tags: ["Petugas"],
+        summary: "Unggah / ganti foto KTP anggota yang dipegang petugas",
+        description: "Role: Petugas (hak `create` pada `my_tasks`). Hanya anggota yang dipegang petugas ini (404 bila bukan).",
+        parameters: [idPath("ID anggota")],
+        requestBody: FOTO_BODY,
+        responses: {
+          "200": resp("Tersimpan", data(obj({ id_card_image: string }))),
+          "404": err("Anggota tidak ditemukan"),
+          ...UNAUTH,
+        },
+      },
+    },
     "/api/v1/petugas/profil": {
       get: {
         tags: ["Petugas"],
