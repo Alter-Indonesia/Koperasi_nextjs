@@ -93,7 +93,7 @@ export const openapi = {
       post: {
         tags: ["Autentikasi"],
         summary: "Login",
-        description: "Memeriksa email & password lalu membuat sesi. 5 kali salah berturut-turut mengunci akun 15 menit. Email tidak terdaftar dan password salah memberi pesan yang sama.",
+        description: "Memeriksa email ATAU no. HP (`identifier`; no. HP boleh `0812-…`, `0812…`, atau `+62812…`) dan password lalu membuat sesi. 5 kali salah berturut-turut mengunci akun 15 menit. Email tidak terdaftar dan password salah memberi pesan yang sama.",
         security: [],
         requestBody: jsonBody(ref("LoginRequest")),
         responses: {
@@ -102,8 +102,8 @@ export const openapi = {
             headers: { "Set-Cookie": { schema: string, description: "koperasi_sesi=…; HttpOnly; SameSite=Lax; Path=/" } },
             content: { "application/json": { schema: data(ref("LoginResult")) } },
           },
-          "400": err("Format email / password tidak valid"),
-          "401": err("Email atau password salah"),
+          "400": err("Isian tidak valid"),
+          "401": err("Email / no. HP atau password salah"),
           "429": err("Akun terkunci sementara karena terlalu banyak percobaan"),
         },
       },
@@ -386,15 +386,14 @@ export const openapi = {
     "/api/v1/penugasan": {
       get: {
         tags: ["Penugasan"],
-        summary: "Tagihan yang belum ditugaskan + beban tiap petugas",
-        description: `Role: ${ADMIN}. Tagihan = angsuran tertua yang belum dibayar per pinjaman, jatuh tempo s.d. tanggal tugas.`,
-        parameters: [dateQ("Tanggal tugas; default besok")],
+        summary: "Anggota yang belum punya petugas + anggota yang dipegang tiap petugas",
+        description: `Role: ${ADMIN}. Penugasan tetap per anggota (\`members.collector_id\`): petugas hanya menagih dan menerima pelunasan dari anggota yang dipegangnya. \`unassigned\` = anggota aktif tanpa petugas; \`collectors[].members\` = semua anggota yang dipegang (\`load\` = jumlahnya). Tugas harian petugas dibentuk otomatis dari sini.`,
         responses: { "200": resp("Data penugasan", data(ref("Assignments"))), ...UNAUTH },
       },
       post: {
         tags: ["Penugasan"],
-        summary: "Tugaskan tagihan ke satu petugas",
-        description: `Role: ${ADMIN}. Bila tagihan sudah ditugaskan di tanggal itu, petugasnya diganti.`,
+        summary: "Tetapkan petugas pemegang anggota",
+        description: `Role: ${ADMIN}. \`collector_id\` = petugas pemegang; \`null\` melepas anggota dari petugasnya. Tagihan hari ini dan ke depan yang belum dibayar ikut dipindahkan ke petugas baru.`,
         requestBody: jsonBody(ref("AssignRequest")),
         responses: { "201": resp("Ditugaskan", data(obj({ assigned: integer }))), "400": err("Data tidak valid"), "404": err("Petugas tidak ditemukan"), ...UNAUTH },
       },
@@ -402,9 +401,8 @@ export const openapi = {
     "/api/v1/penugasan/otomatis": {
       post: {
         tags: ["Penugasan"],
-        summary: "Bagi tagihan otomatis per wilayah",
-        description: `Role: ${ADMIN}. Setiap tagihan yang belum ditugaskan diberikan ke petugas di wilayah anggotanya.`,
-        requestBody: jsonBody(obj({ date: date }, ["date"])),
+        summary: "Bagi anggota otomatis per wilayah",
+        description: `Role: ${ADMIN}. Setiap anggota yang belum punya petugas diberikan ke petugas di wilayahnya, bergiliran ke yang paling sedikit memegang anggota. Wilayah tanpa petugas dilewati.`,
         responses: { "201": resp("Ditugaskan", data(obj({ assigned: integer }))), "400": err("Data tidak valid"), ...UNAUTH },
       },
     },
@@ -694,7 +692,7 @@ export const openapi = {
         parameters: [{ name: "date", in: "query", description: "Tanggal penugasan (YYYY-MM-DD); hari ini s.d. hari ini + 4", schema: { type: "string", format: "date" } }],
         responses: {
           "422": err("Tanggal di luar rentang"),
-          "200": resp("Tugas", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer, promised_on: nullable(date), promise_reason: nullable(string) })), obj({ date, today: date, upcoming: arr(obj({ date, count: integer })), total: integer, done: integer, postponed: integer, amount_total: rp(), amount_done: rp(), methods: obj({ tunai: { type: "boolean" }, transfer: { type: "boolean" } }), bank: obj({ name: string, number: string, holder: string }) }))),
+          "200": resp("Tugas", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer, promised_on: nullable(date), promise_reason: nullable(string) })), obj({ date, today: date, upcoming: arr(obj({ date, count: integer })), total: integer, done: integer, postponed: integer, amount_total: rp(), amount_done: rp(), methods: obj({ tunai: { type: "boolean" }, transfer: { type: "boolean" } }), collector_name: nullable(string), bank: obj({ name: string, number: string, holder: string }) }))),
           ...UNAUTH,
         },
       },
@@ -751,6 +749,218 @@ export const openapi = {
         },
       },
     },
+    "/api/v1/anggota/saya": {
+      get: {
+        tags: ["Anggota"],
+        summary: "Profil, simpanan, dan ringkasan pinjaman saya",
+        description: "Role: Anggota (modul `my_loans`). Hanya data anggota yang login; 404 bila akun tidak terhubung ke data anggota. `next_installment` = angsuran belum lunas terdekat dari semua pinjaman aktif.",
+        responses: {
+          "200": resp("Data saya", data(obj({
+            id: integer, member_number: string, name: string, phone: nullable(string), email: nullable(string), address: nullable(string), status: string, joined_on: string, region_name: string, collector_name: nullable(string),
+            principal_savings: rp(), mandatory_savings: rp(), voluntary_savings: rp(), total_savings: rp(), active_loans: integer, remaining_balance: rp(), arrears_amount: rp(), worst_days: integer,
+            next_installment: nullable(obj({ id: integer, sequence: integer, due_date: string, total_amount: rp(), status: string, loan_number: string, tenor_duration: integer, tenor_unit: string, days_overdue: integer })),
+          }))),
+          "404": err("Akun tidak terhubung ke data anggota"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/anggota/saya/pinjaman": {
+      get: {
+        tags: ["Anggota"],
+        summary: "Pinjaman saya beserta jadwal angsuran dan riwayat bayar",
+        description: "Role: Anggota (modul `my_loans`). Semua pinjaman milik anggota yang login (aktif lebih dulu), tiap pinjaman memuat `installments` dan `payments`.",
+        responses: {
+          "200": resp("Daftar pinjaman", data({ type: "array", items: obj({
+            id: integer, loan_number: string, purpose: nullable(string), status: string, loan_amount: rp(), principal_amount: rp(), tenor_duration: integer, tenor_unit: string, interest_rate_percent: number,
+            installment_amount: rp(), disbursed_on: nullable(string), remaining_balance: rp(), paid_installments: integer, next_due_date: nullable(string), arrears_amount: rp(), days_overdue: integer, collectibility: string,
+            installments: { type: "array", items: obj({ id: integer, loan_id: integer, sequence: integer, due_date: string, total_amount: rp(), status: string, days_overdue: integer }) },
+            payments: { type: "array", items: obj({ id: integer, loan_id: integer, sequence: integer, amount: rp(), penalty_amount: rp(), method: string, paid_at: string, status: string }) },
+            payoff: nullable(obj({
+              amount: rp(), installments_count: integer, blocked_reason: nullable(string),
+              request: nullable(obj({
+                id: integer, amount: rp(), installments_count: integer, method: { ...string, enum: ["transfer", "tunai"] },
+                status: { ...string, enum: ["menunggu", "disetujui", "menunggu_verifikasi"] }, requested_at: string, approved_at: nullable(string),
+                receipt_code: nullable(string), has_proof: { type: "boolean" }, collector_name: nullable(string),
+              })),
+              last_rejected: nullable(obj({ notes: nullable(string), decided_at: nullable(string) })),
+              methods: obj({ tunai: { type: "boolean" }, transfer: { type: "boolean" } }),
+              bank: obj({ name: string, number: string, holder: string }),
+            })),
+          }) })),
+          "404": err("Akun tidak terhubung ke data anggota"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/anggota/saya/pinjaman/{id}/pelunasan": {
+      post: {
+        tags: ["Anggota"],
+        summary: "Ajukan pelunasan dipercepat",
+        description: "Role: Anggota (modul `my_loans`, aksi create). Nominal = jumlah seluruh angsuran yang belum lunas (snapshot saat diajukan). `method` transfer | tunai (422 bila dinonaktifkan di Pengaturan). Hanya pinjaman milik sendiri yang berstatus aktif; 409 bila sudah ada pengajuan berjalan; 422 bila masih ada pembayaran angsuran menunggu verifikasi. Alur: menunggu → Admin setujui (`POST /pelunasan/{id}`) → transfer: unggah bukti (`POST …/pelunasan/bukti`) · tunai: petugas menerima (`POST /petugas/pelunasan/{id}/terima`) → menunggu_verifikasi → Admin verifikasi.",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer, description: "ID pinjaman" }],
+        requestBody: jsonBody(obj({ method: { ...string, enum: ["transfer", "tunai"] } }, ["method"])),
+        responses: {
+          "201": resp("Pengajuan dibuat", data(obj({ id: integer, amount: rp(), installments_count: integer, method: string, status: string }))),
+          "404": err("Pinjaman tidak ditemukan"),
+          "409": err("Pengajuan pelunasan masih menunggu verifikasi"),
+          "422": err("Pinjaman tidak berjalan / ada pembayaran menunggu verifikasi"),
+          ...UNAUTH,
+        },
+      },
+      delete: {
+        tags: ["Anggota"],
+        summary: "Batalkan pengajuan pelunasan",
+        description: "Role: Anggota (modul `my_loans`, aksi create). Membatalkan pengajuan pelunasan milik sendiri yang belum dibayar (menunggu / disetujui / transfer dengan bukti terkirim). 409 bila uang tunai sudah diterima petugas.",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer, description: "ID pinjaman" }],
+        responses: {
+          "200": resp("Dibatalkan", data(obj({ id: integer, status: string }))),
+          "404": err("Tidak ada pengajuan pelunasan yang berjalan"),
+          "409": err("Uang tunai sudah diterima petugas"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/pelunasan": {
+      get: {
+        tags: ["Pembayaran"],
+        summary: "Daftar pengajuan pelunasan dipercepat",
+        description: "Role: Admin/Owner (modul `payments`). Filter `status` (menunggu|disetujui|menunggu_verifikasi|terverifikasi|ditolak|dibatalkan), `q` (nama anggota / no. pinjaman / kode bukti persis). `deposit_state` (tunai): belum_disetor | setoran_menunggu | setoran_ditolak | setoran_diterima. `meta.summary` = to_approve, to_verify, to_verify_amount, verified_today.",
+        parameters: [
+          { name: "status", in: "query", schema: string }, { name: "q", in: "query", schema: string },
+          { name: "page", in: "query", schema: integer }, { name: "limit", in: "query", schema: integer },
+        ],
+        responses: {
+          "200": resp("Daftar pengajuan", data({ type: "array", items: obj({
+            id: integer, loan_id: integer, loan_number: string, member_name: string, member_number: string, amount: rp(), installments_count: integer,
+            method: { ...string, enum: ["transfer", "tunai"] }, source: { ...string, enum: ["anggota", "petugas"] }, status: string,
+            requested_at: string, approved_at: nullable(string), received_at: nullable(string), decided_at: nullable(string), notes: nullable(string),
+            receipt_code: nullable(string), has_proof: { type: "boolean" }, collector_name: nullable(string), deposit_state: nullable(string),
+          }) })),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/pelunasan/{id}": {
+      post: {
+        tags: ["Pembayaran"],
+        summary: "Setujui / verifikasi / tolak pelunasan dipercepat",
+        description: "Role: Admin/Owner (modul `payments`, aksi update). `approve`: menunggu → disetujui (409 bila sisa angsuran berubah). `verify`: menunggu_verifikasi → terverifikasi; transfer wajib ada bukti, tunai wajib sudah disetor dan setorannya diterima (422); semua angsuran belum lunas jadi lunas dan pinjaman lunas; 409 bila sisa angsuran berubah. `reject`: menunggu/disetujui/menunggu_verifikasi → ditolak, `notes` wajib (tunai yang sudah diterima petugas: pembayaran ditolak dan angsuran kembali belum).",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer }],
+        requestBody: jsonBody(obj({ action: { ...string, enum: ["approve", "reject", "verify"] }, notes: { ...string, maxLength: 500 } }, ["action"])),
+        responses: {
+          "200": resp("Diputuskan", data(obj({ id: integer, status: string, loan_paid_off: { type: "boolean" }, installments_paid: integer }))),
+          "404": err("Pengajuan tidak ditemukan"),
+          "409": err("Sudah diproses / sisa angsuran berubah"),
+          "422": err("Alasan penolakan wajib / ada pembayaran menunggu"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/anggota/saya/pinjaman/{id}/pelunasan/bukti": {
+      post: {
+        tags: ["Anggota"],
+        summary: "Unggah bukti transfer pelunasan",
+        description: "Role: Anggota (modul `my_loans`, aksi create). Multipart, field `foto` (JPG/PNG/WebP, maks. 5 MB). Hanya untuk pelunasan transfer yang sudah disetujui Admin (boleh mengganti selama belum diverifikasi); status menjadi menunggu_verifikasi.",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer, description: "ID pinjaman" }],
+        requestBody: { required: true, content: { "multipart/form-data": { schema: obj({ foto: { type: "string", format: "binary" } }, ["foto"]) } } },
+        responses: {
+          "200": resp("Bukti terkirim", data(obj({ id: integer, status: string }))),
+          "404": err("Tidak ada pengajuan pelunasan yang menunggu pembayaran"),
+          "413": err("Ukuran foto maksimal 5 MB"),
+          "415": err("Foto harus berformat JPG, PNG, atau WebP"),
+          "422": err("Bukan pelunasan transfer"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/pelunasan/{id}/bukti": {
+      get: {
+        tags: ["Pembayaran"],
+        summary: "Foto bukti transfer pelunasan",
+        description: "Role: Admin/Owner (modul `payments`). Mengembalikan berkas gambar (bukan JSON); wajib login, tanpa URL publik.",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer }],
+        responses: {
+          "200": { description: "Berkas gambar", content: { "image/jpeg": { schema: { type: "string", format: "binary" } }, "image/png": { schema: { type: "string", format: "binary" } }, "image/webp": { schema: { type: "string", format: "binary" } } } },
+          "404": err("Pengajuan / bukti tidak ditemukan"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/pelunasan": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Pelunasan dipercepat di wilayah tugas",
+        description: "Role: Petugas (modul `my_tasks`). `approved` = pengajuan tunai anggota yang sudah disetujui dan menunggu uang diterima; `loans` = pinjaman aktif anggota di wilayahnya (`blocked` bila belum bisa, filter `q`, `limit`); `mine` = pelunasan tunai yang sudah diterima petugas ini (kode bukti, status setoran).",
+        parameters: [{ name: "q", in: "query", schema: string }, { name: "limit", in: "query", schema: integer }],
+        responses: {
+          "200": resp("Data pelunasan", data(obj({
+            approved: { type: "array", items: obj({ id: integer, loan_id: integer, amount: rp(), installments_count: integer, approved_at: string, loan_number: string, member_name: string, member_number: string, member_phone: nullable(string), member_address: nullable(string) }) },
+            loans: { type: "array", items: obj({ loan_id: integer, loan_number: string, member_name: string, member_number: string, member_phone: nullable(string), amount: rp(), installments_count: integer, blocked: nullable(string) }) },
+            mine: { type: "array", items: obj({ id: integer, amount: rp(), installments_count: integer, status: string, source: string, receipt_code: string, received_at: string, loan_number: string, member_name: string, deposit_state: nullable(string) }) },
+          }))),
+          ...UNAUTH,
+        },
+      },
+      post: {
+        tags: ["Petugas"],
+        summary: "Terima pelunasan tunai langsung dari anggota",
+        description: "Role: Petugas (modul `my_tasks`, aksi create). Tanpa persetujuan Admin. Hanya pinjaman aktif anggota di wilayah tugas (404 bila di luar wilayah; 409 bila sudah ada pengajuan berjalan). Dibuat pembayaran tunai menunggu per angsuran tersisa (ikut uang tunai di tangan → Setoran Kas) dan kode bukti untuk QR kwitansi. Lalu setor dan Admin verifikasi (`POST /pelunasan/{id}`).",
+        requestBody: jsonBody(obj({ loan_id: integer }, ["loan_id"])),
+        responses: {
+          "201": resp("Pelunasan dicatat", data(obj({ id: integer, amount: rp(), installments_count: integer, receipt_code: string }))),
+          "404": err("Pinjaman tidak ditemukan di wilayah tugas"),
+          "409": err("Sudah ada pengajuan pelunasan berjalan"),
+          "422": err("Pinjaman tidak berjalan / pembayaran tunai dinonaktifkan / ada pembayaran menunggu verifikasi"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/pelunasan/{id}": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Data kwitansi pelunasan tunai",
+        description: "Role: Petugas (modul `my_tasks`). Hanya kwitansi yang diterima petugas ini; `receipt_code` adalah isi QR.",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer, description: "ID pengajuan pelunasan" }],
+        responses: {
+          "200": resp("Kwitansi", data(obj({
+            id: integer, receipt_code: string, amount: rp(), installments_count: integer, received_at: string, status: string, source: string, loan_number: string, loan_amount: rp(),
+            tenor_duration: integer, tenor_unit: string, member_name: string, member_number: string, member_address: nullable(string), region_name: string, collector_name: string, collector_code: nullable(string),
+          }))),
+          "404": err("Kwitansi tidak ditemukan"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/petugas/pelunasan/{id}/terima": {
+      post: {
+        tags: ["Petugas"],
+        summary: "Terima uang tunai untuk pengajuan pelunasan yang disetujui",
+        description: "Role: Petugas (modul `my_tasks`, aksi create). `id` = pengajuan anggota berstatus disetujui (metode tunai) milik anggota di wilayah tugas petugas (404 bila di luar wilayah; 409 bila belum disetujui / sudah diproses). Hasil sama dengan `POST /petugas/pelunasan`: pembayaran tunai menunggu per angsuran + kode bukti QR.",
+        parameters: [{ name: "id", in: "path", required: true, schema: integer, description: "ID pengajuan pelunasan" }],
+        responses: {
+          "201": resp("Uang diterima", data(obj({ id: integer, amount: rp(), installments_count: integer, receipt_code: string }))),
+          "404": err("Pengajuan tidak ditemukan di wilayah tugas"),
+          "409": err("Belum disetujui / sudah diproses / sisa angsuran berubah"),
+          "422": err("Bukan pelunasan tunai / pembayaran tunai dinonaktifkan"),
+          ...UNAUTH,
+        },
+      },
+    },
+    "/api/v1/anggota/saya/password": {
+      post: {
+        tags: ["Anggota"],
+        summary: "Ganti password sendiri",
+        description: "Role: Anggota (modul `my_loans`). Password saat ini harus benar (422 bila salah atau password baru sama). Berhasil: semua sesi login diputus, klien harus masuk ulang.",
+        requestBody: jsonBody(obj({ current_password: string, new_password: { ...string, minLength: 8, maxLength: 72 } }, ["current_password", "new_password"])),
+        responses: {
+          "200": resp("Password diganti", data(obj({ changed: { type: "boolean" } }))),
+          "400": err("Data tidak valid"),
+          "422": err("Password saat ini salah"),
+          ...UNAUTH,
+        },
+      },
+    },
     "/api/v1/petugas/profil/password": {
       post: {
         tags: ["Petugas"],
@@ -788,12 +998,13 @@ export const openapi = {
       ),
       LoginRequest: obj(
         {
-          email: { ...string, format: "email", maxLength: 120, example: "rina@koperasiku.id" },
+          identifier: { ...string, maxLength: 120, example: "rina@koperasiku.id", description: "Email atau no. HP akun" },
+          email: { ...string, maxLength: 120, deprecated: true, description: "Nama lama untuk `identifier` (masih diterima)" },
           password: { ...string, minLength: 1, description: "Maks. 72 byte (batas bcrypt)" },
           remember: { type: "boolean", default: false, description: "true = sesi 30 hari (default 12 jam)" },
           token: { type: "boolean", default: false, description: "true = sertakan token Bearer di respons (klien mobile/API)" },
         },
-        ["email", "password"],
+        ["password"],
       ),
       LoginResult: obj({
         user: obj({ id: { ...integer, example: 2 }, name: { ...string, example: "Rina Andayani" }, email: { ...string, example: "rina@koperasiku.id" }, role: ref("Role") }),
@@ -951,16 +1162,19 @@ export const openapi = {
       ),
 
       Assignments: obj({
-        date: date,
-        unassigned: arr(obj({ id: { ...integer, description: "ID angsuran" }, loan_id: integer, sequence: integer, due_date: date, total_amount: rp(), member_name: string, member_address: string, region_id: integer, region_name: string, loan_number: string })),
+        unassigned: arr(ref("AssignedMember")),
         collectors: arr(obj({
           id: integer, code: nullable(string), name: string, region_id: nullable(integer), region_name: nullable(string), load: integer, max_load: { ...integer, example: 30 },
-          tasks: arr(obj({ collector_id: integer, installment_id: integer, total_amount: rp(), member_name: string })),
+          members: arr(ref("AssignedMember")),
         })),
       }),
+      AssignedMember: obj({
+        id: integer, member_number: string, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_id: integer, region_name: string,
+        collector_id: nullable(integer), active_loans: integer,
+      }),
       AssignRequest: obj(
-        { date: date, collector_id: { ...integer, minimum: 1 }, installment_ids: { type: "array", items: integer, minItems: 1, maxItems: 200, description: "ID angsuran yang berstatus `belum`" } },
-        ["date", "collector_id", "installment_ids"],
+        { collector_id: { ...nullable(integer), minimum: 1, description: "ID petugas; null = lepas dari petugas" }, member_ids: { type: "array", items: integer, minItems: 1, maxItems: 200 } },
+        ["collector_id", "member_ids"],
       ),
       Collector: obj({ id: integer, code: nullable(string), name: string, phone: nullable(string), region_id: nullable(integer), region_name: nullable(string) }),
 

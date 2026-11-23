@@ -181,6 +181,20 @@ async function seed(c) {
     const ang = Math.round(plafon / tenor) + Math.round(plafon * 0.015);
     await c.query(`INSERT INTO loans (loan_number, member_id, principal_amount, loan_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, collateral, status, submitted_by) VALUES ($1,$2,20000000,$3,$4,1.5,$5,$6,$7,'pengajuan',$8)`, [`PJ-${String(today.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, ang, tujuan, jaminan, adminId]);
   }
+  // penugasan tetap: anggota dipegang petugas di wilayahnya (3 anggota pengajuan contoh dibiarkan belum punya petugas)
+  await c.query(`UPDATE members m SET collector_id = (SELECT u.id FROM users u WHERE u.role = 'petugas' AND u.status = 'aktif' AND u.region_id = m.region_id ORDER BY u.id LIMIT 1)
+                 WHERE m.name NOT IN ('Rudi Setiawan', 'Euis Maryani', 'Taufik Hidayat')`);
+  // akun login anggota (role anggota; login pakai no. HP). No. HP harus unik: anggota dengan no. HP kembar hanya satu yang dibuatkan akun.
+  const pw = process.env.SEED_PASSWORD;
+  const memberHash = pw && pw.length >= 8 ? await hashPassword(pw) : null;
+  await c.query(`WITH ins AS (
+      INSERT INTO users (code, name, phone, role, region_id, status, password_hash)
+      SELECT DISTINCT ON (normalize_phone(m.phone)) m.member_number, m.name, m.phone, 'anggota', m.region_id, 'aktif', $1
+      FROM members m WHERE m.deleted_at IS NULL AND normalize_phone(m.phone) IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM users u WHERE u.deleted_at IS NULL AND normalize_phone(u.phone) = normalize_phone(m.phone))
+      ORDER BY normalize_phone(m.phone), m.id
+      RETURNING id, code)
+    UPDATE members m SET user_id = ins.id FROM ins WHERE m.member_number = ins.code`, [memberHash]);
   const n = (await c.query('SELECT (SELECT count(*) FROM members) a, (SELECT count(*) FROM loans) p, (SELECT count(*) FROM installments) s, (SELECT count(*) FROM payments WHERE status = $1) m', ['menunggu'])).rows[0];
   console.log(`data contoh: ${n.a} anggota, ${n.p} pinjaman, ${n.s} angsuran, ${n.m} pembayaran menunggu verifikasi`);
 }

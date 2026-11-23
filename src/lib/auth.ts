@@ -14,7 +14,7 @@ export const LOCK_MINUTES = 15;
 
 /** Kode role (tabel roles): 4 role bawaan (owner, admin, petugas, anggota) + role kustom. */
 export type Role = string;
-export type SessionUser = { id: number; code: string | null; name: string; email: string; role: Role; region_id: number | null; region_name: string | null };
+export type SessionUser = { id: number; code: string | null; name: string; email: string | null; role: Role; region_id: number | null; region_name: string | null; member_id: number | null };
 
 // ---------- password: bcrypt (hash `$2a$12$…`, garam ada di dalam hash; sama dengan scripts/db.mjs) ----------
 export const BCRYPT_COST = 12;
@@ -76,7 +76,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
        WHERE id = $1 AND expires_at > now()
        RETURNING user_id
      )
-     SELECT u.id, u.code, u.name, u.email, u.role, u.region_id, r.name AS region_name
+     SELECT u.id, u.code, u.name, u.email, u.role, u.region_id, r.name AS region_name,
+            (SELECT m.id FROM members m WHERE m.user_id = u.id AND m.deleted_at IS NULL LIMIT 1) AS member_id
      FROM s JOIN users u ON u.id = s.user_id LEFT JOIN regions r ON r.id = u.region_id
      WHERE u.status = 'aktif' AND u.deleted_at IS NULL`,
     [sha256(token)],

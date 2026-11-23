@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, Bell, CalendarClock, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, Database, FileBarChart, HandCoins, History, LayoutDashboard, Map, MapPin,
+  BadgeCheck, Bell, CalendarClock, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, Database, FileBarChart, HandCoins, History, Receipt, LayoutDashboard, Map, MapPin,
   ScrollText, ShieldCheck, SlidersHorizontal, UserCog, UserRound, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import type { Action, Area, Module } from "@/lib/permissions";
@@ -37,6 +37,7 @@ const ADMIN_NAV: NavGroupDef[] = [
         { href: "/admin/pinjaman", label: "Data Pinjaman", icon: Wallet, module: "loans" },
         { href: "/admin/jatuh-tempo", label: "Jatuh Tempo", icon: CalendarClock, module: "due_dates" },
         { href: "/admin/verifikasi", label: "Verifikasi Bayar", icon: BadgeCheck, module: "payments", badge: "payments" },
+        { href: "/admin/pelunasan", label: "Pelunasan", icon: Receipt, module: "payments" },
         { href: "/admin/setoran", label: "Setoran Petugas", icon: HandCoins, module: "deposit_receipts" },
         { href: "/admin/penugasan", label: "Penugasan Petugas", icon: MapPin, module: "assignments" },
         { href: "/admin/pengingat", label: "Pengingat Tagihan", icon: Bell, module: "reminders" },
@@ -72,8 +73,9 @@ export const NAV: Record<Area, NavGroupDef[]> = {
     {
       label: "MENU PETUGAS",
       items: [
-        { href: "/petugas", label: "Tugas Hari Ini", icon: ClipboardList, module: "my_tasks", exact: true },
-        { href: "/petugas/riwayat", label: "Setoran Kas", icon: History, module: "my_deposits" },
+        { href: "/petugas", label: "Tugas", icon: ClipboardList, module: "my_tasks", exact: true },
+        { href: "/petugas/pelunasan", label: "Pelunasan", icon: Receipt, module: "my_tasks" },
+        { href: "/petugas/riwayat", label: "Setoran", icon: History, module: "my_deposits" },
         { href: "/petugas/profil", label: "Profil", icon: UserRound, module: "my_tasks" },
       ],
     },
@@ -82,10 +84,10 @@ export const NAV: Record<Area, NavGroupDef[]> = {
     {
       label: "MENU ANGGOTA",
       items: [
-        { href: "/anggota", label: "Beranda", icon: LayoutDashboard, exact: true },
-        { href: "/anggota/pinjaman", label: "Pinjaman Saya", icon: Wallet },
-        { href: "/anggota/jadwal", label: "Jadwal Angsuran", icon: CalendarDays },
-        { href: "/anggota/profil", label: "Profil", icon: UserRound },
+        { href: "/anggota", label: "Beranda", icon: LayoutDashboard, module: "my_loans", exact: true },
+        { href: "/anggota/pinjaman", label: "Pinjaman", icon: Wallet, module: "my_loans" },
+        { href: "/anggota/jadwal", label: "Jadwal", icon: CalendarDays, module: "my_loans" },
+        { href: "/anggota/profil", label: "Profil", icon: UserRound, module: "my_loans" },
       ],
     },
   ],

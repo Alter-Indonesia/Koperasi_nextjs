@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tx } from "@/lib/db";
 import { body, created, currentUser, handle, HttpError, idParam } from "@/lib/http";
+import { ensureAssignmentsAhead } from "@/lib/queries";
 
 const Postpone = z.object({
   promised_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tanggal janji tidak valid"),
@@ -14,6 +15,7 @@ export const POST = handle(async (req: Request, ctx: RouteContext<"/api/v1/petug
   const id = idParam((await ctx.params).id);
   const d = await body(req, Postpone);
   const me = currentUser();
+  await ensureAssignmentsAhead(0, me.id);
   const res = await tx(async (c) => {
     const i = (await c.query<{ status: string; ok: boolean }>(
       `SELECT i.status, ($2::date > CURRENT_DATE AND $2::date <= CURRENT_DATE + $3::int) AS ok FROM installments i

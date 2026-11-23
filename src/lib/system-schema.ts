@@ -6,7 +6,8 @@ import { ACTIONS, AREAS, MODULES } from "@/lib/permissions";
 export const UserFields = {
   code: z.string().trim().max(20).optional(),
   name: z.string().trim().min(2, "Nama minimal 2 karakter").max(100),
-  email: z.string().trim().toLowerCase().email("Format email tidak valid").max(120),
+  // kosong = tanpa email (akun anggota login dengan no. HP); minimal salah satu email / no. HP wajib (dicek di endpoint)
+  email: z.union([z.literal(""), z.string().trim().toLowerCase().email("Format email tidak valid").max(120)]),
   phone: z.string().trim().max(20).optional(),
   role: z.string().trim().min(1, "Role wajib dipilih").max(30),
   region_id: z.number().int().positive().nullable().optional(),

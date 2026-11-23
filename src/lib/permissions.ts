@@ -18,6 +18,7 @@ export const MODULES = [
   { code: "settings", label: "Pengaturan" },
   { code: "my_tasks", label: "Tugas Penagihan Saya" },
   { code: "my_deposits", label: "Setoran Kas Saya" },
+  { code: "my_loans", label: "Pinjaman & Profil Saya" },
 ] as const;
 
 export type Module = (typeof MODULES)[number]["code"];
@@ -59,10 +60,11 @@ export const MODULE_ACTIONS: Record<Module, Action[]> = {
   settings: ["view", "update"],
   my_tasks: ["view", "create"],
   my_deposits: ["view", "create"],
+  my_loans: ["view", "create"],
 };
 
 /** Label aksi di log aktivitas. */
 export const ACTIVITY_LABEL: Record<string, string> = {
   login: "Login", login_failed: "Login gagal", logout: "Logout", create: "Tambah", update: "Ubah", delete: "Hapus", verify: "Verifikasi bayar", send: "Kirim pengingat",
-  auto_assign: "Bagi otomatis", deposit: "Setor kas", collect: "Catat pembayaran", postpone: "Tunda tagihan", upload: "Unggah", ocr: "Baca KTP", update_permissions: "Ubah hak akses", decide_loan: "Putuskan pinjaman", receive_deposit: "Putuskan setoran",
+  auto_assign: "Bagi otomatis", deposit: "Setor kas", collect: "Catat pembayaran", postpone: "Tunda tagihan", upload: "Unggah", ocr: "Baca KTP", update_permissions: "Ubah hak akses", decide_loan: "Putuskan pinjaman", receive_deposit: "Putuskan setoran", change_password: "Ganti password", request_payoff: "Ajukan pelunasan", cancel_payoff: "Batalkan pelunasan", decide_payoff: "Putuskan pelunasan",
 };

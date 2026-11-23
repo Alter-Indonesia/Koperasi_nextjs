@@ -61,7 +61,7 @@ src/components/layout/    POLA LAYOUT: AppShell (sidebar 240 + konten padding 32
 src/components/crud/      form halaman generik (tambah / lihat / ubah / hapus) untuk master data & sistem
 src/app/admin/*           Admin: anggota, pinjaman, jatuh tempo, verifikasi, penugasan, pengingat, laporan · master/(wilayah, tenor) · sistem/(pengguna, role, log-aktivitas)
 src/app/owner/*           Owner: dashboard, persetujuan pinjaman, laporan
-src/app/petugas/*   Tugas Hari Ini, Setoran Kas (/riwayat), Profil · src/app/anggota/*   kerangka menu (aplikasi mobile menyusul)
+src/app/petugas/*   Tugas Hari Ini, Setoran Kas (/riwayat), Profil · src/app/anggota/*   Beranda, Pinjaman Saya, Jadwal Angsuran, Profil
 src/app/api/v1/*          REST API (route handlers)
 src/lib/                  db (pg Pool), http (format respons & error), api (klien fetch/useApi), format (Rupiah, tanggal), openapi (spec dokumentasi API)
 ```
@@ -111,7 +111,7 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 
 | Metode | Endpoint | Fungsi |
 |---|---|---|
-| POST | `/auth/login` | `{ email, password, remember, token? }` → cookie `koperasi_sesi` (httpOnly, SameSite=Lax, 12 jam / 30 hari); `token: true` juga mengembalikan token Bearer untuk klien mobile/API |
+| POST | `/auth/login` | `{ identifier (email atau no. HP), password, remember, token? }` → cookie `koperasi_sesi` (httpOnly, SameSite=Lax, 12 jam / 30 hari); `token: true` juga mengembalikan token Bearer untuk klien mobile/API |
 | POST | `/auth/logout` | hapus sesi di DB & cookie |
 | GET | `/auth/me` | pengguna, `role_name`, `area`, `home`, dan `permissions` per modul |
 
@@ -135,8 +135,8 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | GET | `/pembayaran` | antrean (`status=menunggu|terverifikasi|ditolak`) |
 | GET | `/pembayaran/:id` | detail bukti + sisa pinjaman sebelum/sesudah |
 | POST | `/pembayaran/:id/verifikasi` | `{ action: "verify" \| "reject", notes }` → update saldo / tagih ulang. `verify` untuk tunai petugas baru boleh setelah setorannya diterima (422 bila belum); `verify_block` di GET menunjukkan alasannya |
-| GET, POST | `/penugasan` | tagihan belum ditugaskan + beban petugas (`tanggal`, default besok) · tugaskan |
-| POST | `/penugasan/otomatis` | bagi otomatis per wilayah |
+| GET, POST | `/penugasan` | penugasan tetap anggota: anggota belum punya petugas + anggota yang dipegang tiap petugas · tetapkan `{ collector_id \| null, member_ids }` (null = lepas) |
+| POST | `/penugasan/otomatis` | bagi anggota yang belum punya petugas ke petugas di wilayahnya (bergiliran) |
 | GET | `/pengingat` | saluran, aturan, template, log hari ini |
 | POST | `/pengingat/kirim` | catat pengingat (`installment_ids` atau `all_due`) |
 | PATCH | `/pengingat/saluran/:kode` | aktif/nonaktif saluran |
@@ -148,6 +148,17 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | POST | `/petugas/tugas/{id}/tunda` | **Petugas** — tunda tagihan ke `promised_on` (maks. 30 hari) + `reason`; ditugaskan ulang pada tanggal itu |
 | GET, POST | `/petugas/setoran` | **Petugas** — uang tunai di tangan, rincian hari ini, riwayat · setor semua tunai ke kasir (modul `my_deposits`) |
 | GET | `/petugas/profil` | **Petugas** — biodata + capaian bulan ini terhadap target + daftar anggota di wilayah tugasnya (modul `my_tasks`) |
+| GET | `/anggota/saya` | **Anggota** — profil, simpanan, ringkasan pinjaman, angsuran berikutnya (hanya data milik sendiri; modul `my_loans`) |
+| GET | `/anggota/saya/pinjaman` | **Anggota** — pinjaman saya + jadwal angsuran + riwayat bayar (modul `my_loans`) |
+| POST, DELETE | `/anggota/saya/pinjaman/{id}/pelunasan` | **Anggota** — ajukan (`method`: transfer \| tunai; nominal = seluruh sisa angsuran) / batalkan pelunasan dipercepat (modul `my_loans`) |
+| POST | `/anggota/saya/pinjaman/{id}/pelunasan/bukti` | **Anggota** — unggah bukti transfer (multipart `foto`) setelah pengajuan disetujui |
+| GET | `/pelunasan` | pengajuan pelunasan dipercepat (filter `status`, `q` termasuk kode bukti); `meta.summary` (modul `payments`) |
+| POST | `/pelunasan/{id}` | `{ action: approve\|reject\|verify, notes? }` — setujui · tolak (alasan wajib) · verifikasi: semua angsuran tersisa lunas + pinjaman lunas (modul `payments`) |
+| GET | `/pelunasan/{id}/bukti` | foto bukti transfer pelunasan (wajib login) |
+| GET, POST | `/petugas/pelunasan` | **Petugas** — daftar pelunasan di wilayahnya (disetujui · pinjaman aktif · kwitansi saya) · terima pelunasan tunai langsung `{ loan_id }` (modul `my_tasks`) |
+| GET | `/petugas/pelunasan/{id}` | **Petugas** — data kwitansi ber-QR (`receipt_code`) untuk dicetak |
+| POST | `/petugas/pelunasan/{id}/terima` | **Petugas** — terima uang tunai untuk pengajuan anggota yang sudah disetujui |
+| POST | `/anggota/saya/password` | **Anggota** — ganti password sendiri; semua sesi diputus (modul `my_loans`) |
 | POST | `/petugas/profil/password` | **Petugas** — ganti password sendiri (`current_password`, `new_password`); semua sesi diputus (modul `my_tasks`) |
 | GET, POST | `/wilayah` | **Master Data** — daftar wilayah · tambah |
 | GET, PATCH, DELETE | `/wilayah/{id}` | detail · ubah · soft delete (ditolak bila masih dipakai anggota/pengguna) |

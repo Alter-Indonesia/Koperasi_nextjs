@@ -1,10 +1,11 @@
 import { q, one } from "@/lib/db";
 import { currentUser, dateParam, handle, HttpError, ok } from "@/lib/http";
+import { ensureAssignments, ensureAssignmentsAhead } from "@/lib/queries";
 import { getSetting } from "@/lib/settings";
 
 const AHEAD_DAYS = 4; // petugas boleh melihat penugasan sampai 4 hari ke depan
 
-// GET /api/v1/petugas/tugas?date=YYYY-MM-DD — tagihan yang ditugaskan ke petugas yang login (default hari ini; paling jauh 4 hari ke depan)
+// GET /api/v1/petugas/tugas?date=YYYY-MM-DD — tagihan anggota yang dipegang petugas yang login (default hari ini; paling jauh 4 hari ke depan)
 // (belum dibayar & telat lebih dulu). meta.upcoming = jumlah tugas per hari untuk 4 hari ke depan.
 export const GET = handle(async (req: Request) => {
   const me = currentUser();
@@ -13,6 +14,9 @@ export const GET = handle(async (req: Request) => {
     `SELECT d::text AS d, d BETWEEN CURRENT_DATE AND CURRENT_DATE + ${AHEAD_DAYS} AS ok FROM (SELECT COALESCE($1::date, CURRENT_DATE) AS d) x`, [dateInput],
   ))!;
   if (!sel.ok) throw new HttpError(422, `Penugasan hanya bisa dilihat untuk hari ini sampai ${AHEAD_DAYS} hari ke depan`);
+  // tugas dibentuk dari anggota yang dipegang petugas (members.collector_id)
+  await ensureAssignmentsAhead(AHEAD_DAYS, me.id);
+  await ensureAssignments(sel.d, me.id);
   const [today, rows, cash, transfer, bankName, bankNumber, bankHolder, upcoming] = await Promise.all([
     one<{ d: string }>("SELECT CURRENT_DATE::text AS d"),
     q<{ status: string; total_amount: number; promised_on: string | null }>(

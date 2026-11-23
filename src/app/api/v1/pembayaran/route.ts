@@ -17,14 +17,14 @@ export const GET = handle(async (req: Request) => {
        JOIN loans l ON l.id = i.loan_id
        JOIN members m ON m.id = l.member_id
        LEFT JOIN users c ON c.id = p.collector_id
-       WHERE p.status = $1
+       WHERE p.status = $1 AND p.payoff_id IS NULL
          AND ($1 = 'menunggu' OR COALESCE(p.verified_at, p.paid_at)::date = CURRENT_DATE)
        ORDER BY CASE WHEN $1 = 'menunggu' THEN p.paid_at END ASC, p.verified_at DESC NULLS LAST
        LIMIT $2`, [status, limit]),
     one(`SELECT COUNT(*) FILTER (WHERE status = 'menunggu') AS menunggu,
                 COUNT(*) FILTER (WHERE status = 'terverifikasi' AND verified_at::date = CURRENT_DATE) AS terverifikasi,
                 COUNT(*) FILTER (WHERE status = 'ditolak' AND verified_at::date = CURRENT_DATE) AS ditolak
-         FROM payments`),
+         FROM payments WHERE payoff_id IS NULL`),
   ]);
   return ok(rows, { status, counts });
 }, { module: "payments" });

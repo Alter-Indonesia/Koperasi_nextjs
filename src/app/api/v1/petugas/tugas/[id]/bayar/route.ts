@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tx } from "@/lib/db";
 import { body, created, currentUser, handle, HttpError, idParam } from "@/lib/http";
+import { ensureAssignmentsAhead } from "@/lib/queries";
 import { getSetting } from "@/lib/settings";
 
 const Pay = z.object({
@@ -18,6 +19,7 @@ export const POST = handle(async (req: Request, ctx: RouteContext<"/api/v1/petug
   if (!(await getSetting(d.method === "tunai" ? "payment_cash_enabled" : "payment_transfer_enabled", true)))
     throw new HttpError(422, `Pembayaran ${d.method} sedang dinonaktifkan di pengaturan`);
   if (d.method === "transfer" && !d.method_note) throw new HttpError(422, "Isi bank atau nomor referensi transfer");
+  await ensureAssignmentsAhead(0, me.id);
   const res = await tx(async (c) => {
     const i = (await c.query<{ status: string; total_amount: number }>(
       `SELECT i.status, i.total_amount FROM installments i

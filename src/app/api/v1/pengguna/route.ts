@@ -2,6 +2,7 @@ import { z } from "zod";
 import { q, one } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { body, created, currentUser, handle, HttpError, intParam, ok } from "@/lib/http";
+import { normalizePhone } from "@/lib/phone";
 import { UserFields } from "@/lib/system-schema";
 
 // GET /api/v1/pengguna?role=&status=&q=&page=&limit=
@@ -35,12 +36,14 @@ export const POST = handle(async (req: Request) => {
   const d = await body(req, NewUser);
   if (!(await one("SELECT 1 FROM roles WHERE code = $1 AND deleted_at IS NULL", [d.role]))) throw new HttpError(422, "Role tidak ditemukan");
   if (d.region_id && !(await one("SELECT 1 FROM regions WHERE id = $1 AND deleted_at IS NULL", [d.region_id]))) throw new HttpError(422, "Wilayah tidak ditemukan");
-  if (await one("SELECT 1 FROM users WHERE lower(email) = $1 AND deleted_at IS NULL", [d.email])) throw new HttpError(409, "Email sudah dipakai pengguna lain");
+  if (!d.email && !normalizePhone(d.phone)) throw new HttpError(422, "Isi email atau no. HP untuk login");
+  if (d.email && (await one("SELECT 1 FROM users WHERE lower(email) = $1 AND deleted_at IS NULL", [d.email]))) throw new HttpError(409, "Email sudah dipakai pengguna lain");
+  if (normalizePhone(d.phone) && (await one("SELECT 1 FROM users WHERE normalize_phone(phone) = $1 AND deleted_at IS NULL", [normalizePhone(d.phone)]))) throw new HttpError(409, "No. HP sudah dipakai pengguna lain");
   if (d.code && (await one("SELECT 1 FROM users WHERE code = $1 AND deleted_at IS NULL", [d.code]))) throw new HttpError(409, "Kode pengguna sudah dipakai");
   const r = await one<{ id: number }>(
     `INSERT INTO users (code, name, email, phone, role, region_id, status, password_hash, created_by, updated_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id`,
-    [d.code || null, d.name, d.email, d.phone || null, d.role, d.region_id ?? null, d.status, await hashPassword(d.password), currentUser().id],
+    [d.code || null, d.name, d.email || null, d.phone || null, d.role, d.region_id ?? null, d.status, await hashPassword(d.password), currentUser().id],
   );
   // kode otomatis bila dikosongkan: 3 huruf pertama role + nomor (mis. PET-014)
   if (!d.code) await q("UPDATE users SET code = upper(left(role, 3)) || '-' || lpad(id::text, 3, '0') WHERE id = $1", [r!.id]);

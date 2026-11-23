@@ -11,15 +11,15 @@ export const GET = handle(async () => {
     one<{ collected: number; visits: number; month: string }>(
       `SELECT COALESCE(SUM(amount), 0) AS collected, COUNT(*) AS visits, to_char(CURRENT_DATE, 'YYYY-MM') AS month FROM payments
        WHERE collector_id = $1 AND status <> 'ditolak' AND deleted_at IS NULL AND date_trunc('month', paid_at) = date_trunc('month', CURRENT_DATE)`, [me.id]),
-    one<{ member_count: number }>("SELECT COUNT(*) AS member_count FROM members WHERE region_id = $1 AND deleted_at IS NULL", [me.region_id]),
-    // anggota tanggung jawab petugas = anggota di wilayah tugasnya
+    one<{ member_count: number }>("SELECT COUNT(*) AS member_count FROM members WHERE collector_id = $1 AND deleted_at IS NULL", [me.id]),
+    // anggota tanggung jawab petugas = anggota yang dipegangnya (Penugasan Petugas)
     q<{ id: number; member_number: string; name: string; phone: string | null; address: string | null; active_loans: number; arrears_amount: number }>(
       `SELECT m.id, m.member_number, m.name, m.phone, m.address,
               COUNT(l.id) FILTER (WHERE l.status = 'aktif')::int AS active_loans,
               COALESCE(SUM(l.arrears_amount) FILTER (WHERE l.status = 'aktif'), 0) AS arrears_amount
        FROM members m LEFT JOIN v_loans l ON l.member_id = m.id
-       WHERE m.region_id = $1 AND m.deleted_at IS NULL
-       GROUP BY m.id ORDER BY m.name`, [me.region_id]),
+       WHERE m.collector_id = $1 AND m.deleted_at IS NULL
+       GROUP BY m.id ORDER BY m.name`, [me.id]),
     getSetting("collector_monthly_target", 0),
   ]);
   const collected = stats!.collected;

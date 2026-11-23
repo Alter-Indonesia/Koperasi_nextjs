@@ -9,7 +9,7 @@ import { Sidebar, type NavGroup, type NavItem } from "./Sidebar";
 /**
  * Pola layout: sidebar 240 tetap di kiri (lg ≥ 1024), konten dengan padding 32 dan jarak antar kartu 24.
  * Di bawah lg (tablet/HP) sidebar menjadi laci yang dibuka dari bilah atas (tombol menu); tertutup otomatis saat pindah halaman.
- * `responsive` (area Petugas): di bawah lg sidebar diganti navigasi bawah (tanpa bilah atas) dan konten dibatasi lebarnya.
+ * `responsive` (area Petugas & Anggota): di bawah lg sidebar diganti navigasi bawah (tanpa bilah atas) dan konten dibatasi lebarnya.
  * Lebar konten: HP penuh · sm/md dipusatkan (Petugas 640/960) · xl 1200 · 2xl 1360 (Admin/Owner: penuh sampai 1560).
  */
 export function AppShell({
@@ -49,11 +49,11 @@ export function AppShell({
         profileMenu={profileMenu}
         user={user}
         onLogout={onLogout}
-        className={responsive ? "max-lg:hidden" : cx("max-w-[85vw] max-lg:transition-transform", !open && "max-lg:-translate-x-full")}
+        className={responsive ? "max-lg:hidden print:hidden" : cx("max-w-[85vw] max-lg:transition-transform", !open && "max-lg:-translate-x-full")}
       />
       {responsive ? (
         <>
-          <main className="min-w-0 overflow-x-clip px-4 pt-6 pb-28 sm:px-6 md:px-8 lg:ml-[240px] lg:py-8">
+          <main className="min-w-0 overflow-x-clip px-4 pt-6 pb-28 sm:px-6 md:px-8 lg:ml-[240px] lg:py-8 print:m-0 print:p-0">
             <div className="mx-auto w-full min-w-0 max-w-[640px] md:max-w-[960px] lg:max-w-none xl:max-w-[1200px] 2xl:max-w-[1360px]">{children}</div>
           </main>
           <BottomNav groups={groups} />
