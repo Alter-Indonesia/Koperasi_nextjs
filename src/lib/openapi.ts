@@ -746,7 +746,7 @@ export const openapi = {
         summary: "Profil petugas dan capaian bulan ini",
         description: "Role: Petugas (modul `my_tasks`). Target dari pengaturan `collector_monthly_target`; collection rate = tertagih bulan ini / target (0–1).",
         responses: {
-          "200": resp("Profil", data(obj({ id: integer, code: nullable(string), name: string, email: string, phone: nullable(string), status: string, joined_at: nullable(string), last_login_at: nullable(string), region_name: nullable(string), member_count: integer, month: { type: "string", example: "2026-11" }, collected: rp(), visits: integer, target: rp(), collection_rate: number, remaining: rp() }))),
+          "200": resp("Profil", data(obj({ id: integer, code: nullable(string), name: string, email: string, phone: nullable(string), status: string, joined_at: nullable(string), last_login_at: nullable(string), region_name: nullable(string), member_count: integer, members: { type: "array", items: obj({ id: integer, member_number: string, name: string, phone: nullable(string), address: nullable(string), active_loans: integer, arrears_amount: rp() }) }, month: { type: "string", example: "2026-11" }, collected: rp(), visits: integer, target: rp(), collection_rate: number, remaining: rp() }))),
           ...UNAUTH,
         },
       },
