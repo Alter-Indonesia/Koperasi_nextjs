@@ -156,6 +156,8 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | POST | `/pelunasan/{id}` | `{ action: approve\|reject\|verify, notes? }` — setujui · tolak (alasan wajib) · verifikasi: semua angsuran tersisa lunas + pinjaman lunas (modul `payments`) |
 | GET | `/pelunasan/{id}/bukti` | foto bukti transfer pelunasan (wajib login) |
 | GET, POST | `/petugas/pelunasan` | **Petugas** — daftar pelunasan di wilayahnya (disetujui · pinjaman aktif · kwitansi saya) · terima pelunasan tunai langsung `{ loan_id }` (modul `my_tasks`) |
+| GET | `/petugas/pembayaran/{id}` | **Petugas** — data kwitansi ber-QR pembayaran tunai angsuran (`receipt_code` BYR-…; kode dicari Admin di Verifikasi Bayar; QR = tautan publik `/bukti/{public_id}`) |
+| GET | `/bukti/{uuid}` | **Publik (tanpa login)** — bukti pembayaran/pelunasan tunai lewat UUID acak (`public_id`); tujuan QR kwitansi, halaman `/bukti/{uuid}` |
 | GET | `/petugas/pelunasan/{id}` | **Petugas** — data kwitansi ber-QR (`receipt_code`) untuk dicetak |
 | POST | `/petugas/pelunasan/{id}/terima` | **Petugas** — terima uang tunai untuk pengajuan anggota yang sudah disetujui |
 | POST | `/anggota/saya/password` | **Anggota** — ganti password sendiri; semua sesi diputus (modul `my_loans`) |

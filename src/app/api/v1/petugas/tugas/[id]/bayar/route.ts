@@ -2,6 +2,7 @@ import { z } from "zod";
 import { tx } from "@/lib/db";
 import { body, created, currentUser, handle, HttpError, idParam } from "@/lib/http";
 import { ensureAssignmentsAhead } from "@/lib/queries";
+import { receiptCode } from "@/lib/receipt-code";
 import { getSetting } from "@/lib/settings";
 
 const Pay = z.object({
@@ -11,6 +12,7 @@ const Pay = z.object({
 });
 
 // POST /api/v1/petugas/tugas/{id}/bayar — petugas mencatat pembayaran angsuran (id = angsuran) yang ditugaskan kepadanya hari ini.
+// Tunai menghasilkan kode bukti (QR kwitansi): GET /petugas/pembayaran/{id}.
 // Pembayaran berstatus "menunggu" dan baru melunasi angsuran setelah diverifikasi admin (POST /pembayaran/{id}/verifikasi).
 export const POST = handle(async (req: Request, ctx: RouteContext<"/api/v1/petugas/tugas/[id]/bayar">) => {
   const id = idParam((await ctx.params).id);
@@ -35,7 +37,10 @@ export const POST = handle(async (req: Request, ctx: RouteContext<"/api/v1/petug
       [id, i.total_amount, d.method, d.method === "transfer" ? d.method_note : null, me.id, d.notes ?? null],
     )).rows[0];
     await c.query("UPDATE installments SET status = 'menunggu_verifikasi', updated_by = $2 WHERE id = $1", [id, me.id]);
-    return { id: p.id, amount: Number(i.total_amount), method: d.method, status: "menunggu" };
+    // tunai: kwitansi ber-QR (kode bukti dicari Admin saat verifikasi)
+    const code = d.method === "tunai" ? receiptCode("BYR", p.id) : null;
+    if (code) await c.query("UPDATE payments SET receipt_code = $2 WHERE id = $1", [p.id, code]);
+    return { id: p.id, amount: Number(i.total_amount), method: d.method, status: "menunggu", receipt_code: code };
   });
   return created(res);
 }, { module: "my_tasks", action: "create", log: "collect" });

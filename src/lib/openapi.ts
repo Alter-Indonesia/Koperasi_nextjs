@@ -339,8 +339,8 @@ export const openapi = {
       get: {
         tags: ["Pembayaran"],
         summary: "Antrean pembayaran",
-        description: `Role: ${ADMIN}. \`menunggu\` diurut terlama dulu; \`terverifikasi\`/\`ditolak\` hanya yang diproses hari ini.`,
-        parameters: [{ name: "status", in: "query", schema: { type: "string", enum: ["menunggu", "terverifikasi", "ditolak"], default: "menunggu" } }, limit(50, 200)],
+        description: `Role: ${ADMIN}. \`menunggu\` diurut terlama dulu; \`terverifikasi\`/\`ditolak\` hanya yang diproses hari ini. \`q\` = nama anggota, no. pinjaman, atau kode bukti kwitansi (persis). Pembayaran bagian dari pelunasan dipercepat tidak tampil di sini (lihat \`/pelunasan\`).`,
+        parameters: [{ name: "status", in: "query", schema: { type: "string", enum: ["menunggu", "terverifikasi", "ditolak"], default: "menunggu" } }, { name: "q", in: "query", schema: string }, limit(50, 200)],
         responses: {
           "200": resp(
             "Daftar pembayaran",
@@ -692,7 +692,7 @@ export const openapi = {
         parameters: [{ name: "date", in: "query", description: "Tanggal penugasan (YYYY-MM-DD); hari ini s.d. hari ini + 4", schema: { type: "string", format: "date" } }],
         responses: {
           "422": err("Tanggal di luar rentang"),
-          "200": resp("Tugas", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer, promised_on: nullable(date), promise_reason: nullable(string) })), obj({ date, today: date, upcoming: arr(obj({ date, count: integer })), total: integer, done: integer, postponed: integer, amount_total: rp(), amount_done: rp(), methods: obj({ tunai: { type: "boolean" }, transfer: { type: "boolean" } }), collector_name: nullable(string), bank: obj({ name: string, number: string, holder: string }) }))),
+          "200": resp("Tugas", data(arr(obj({ id: integer, sequence: integer, due_date: date, total_amount: rp(), status: { type: "string", enum: ["belum", "menunggu_verifikasi", "lunas"] }, member_name: string, member_address: nullable(string), member_phone: nullable(string), region_name: string, loan_number: string, tenor_duration: integer, days_overdue: integer, promised_on: nullable(date), promise_reason: nullable(string), receipt_payment_id: { ...nullable(integer), description: "ID pembayaran tunai bertanda kwitansi QR (untuk tombol Bukti)" } })), obj({ date, today: date, upcoming: arr(obj({ date, count: integer })), total: integer, done: integer, postponed: integer, amount_total: rp(), amount_done: rp(), methods: obj({ tunai: { type: "boolean" }, transfer: { type: "boolean" } }), collector_name: nullable(string), bank: obj({ name: string, number: string, holder: string }) }))),
           ...UNAUTH,
         },
       },
@@ -701,10 +701,43 @@ export const openapi = {
       post: {
         tags: ["Petugas"],
         summary: "Catat pembayaran angsuran (tunai / transfer)",
-        description: "Role: Petugas (hak `create` pada `my_tasks`). `id` = angsuran yang ditugaskan kepada petugas hari ini. Nominal = total angsuran. Pembayaran berstatus `menunggu` dan angsuran menjadi `menunggu_verifikasi` sampai admin memverifikasi. Metode yang dinonaktifkan di pengaturan ditolak 422.",
+        description: "Role: Petugas (hak `create` pada `my_tasks`). `id` = angsuran yang ditugaskan kepada petugas hari ini. Nominal = total angsuran. Pembayaran berstatus `menunggu` dan angsuran menjadi `menunggu_verifikasi` sampai admin memverifikasi. Metode yang dinonaktifkan di pengaturan ditolak 422. Pembayaran tunai menghasilkan `receipt_code` (isi QR kwitansi; data kwitansi di `GET /petugas/pembayaran/{id}`).",
         parameters: [idPath("ID angsuran")],
         requestBody: jsonBody(obj({ method: { type: "string", enum: ["tunai", "transfer"] }, method_note: { type: "string", maxLength: 100, description: "Wajib untuk transfer: bank / no. referensi" }, notes: { type: "string", maxLength: 300 } }, ["method"])),
-        responses: { "201": resp("Pembayaran tercatat", data(obj({ id: integer, amount: rp(), method: string, status: { type: "string", example: "menunggu" } }))), "400": err("Data tidak valid"), "404": err("Tagihan tidak ada di tugas hari ini"), "409": err("Sudah dibayar / menunggu verifikasi"), "422": err("Metode dinonaktifkan / referensi transfer kosong"), ...UNAUTH },
+        responses: { "201": resp("Pembayaran tercatat", data(obj({ id: integer, amount: rp(), method: string, status: { type: "string", example: "menunggu" }, receipt_code: nullable(string) }))), "400": err("Data tidak valid"), "404": err("Tagihan tidak ada di tugas hari ini"), "409": err("Sudah dibayar / menunggu verifikasi"), "422": err("Metode dinonaktifkan / referensi transfer kosong"), ...UNAUTH },
+      },
+    },
+    "/api/v1/bukti/{uuid}": {
+      get: {
+        tags: ["Bukti"],
+        security: [],
+        summary: "Bukti pembayaran publik (tujuan QR kwitansi)",
+        description: "PUBLIK, tanpa login: UUID acak (`public_id`) adalah satu-satunya kunci. `kind` = `pembayaran` (tunai angsuran; ada `paid_at`, `installment_sequence`) atau `pelunasan` (ada `received_at`, `installments_count`, `loan_amount`). No. HP & alamat anggota tidak dikembalikan. Halaman: `/bukti/{uuid}`.",
+        parameters: [{ name: "uuid", in: "path", required: true, schema: string, description: "public_id bukti" }],
+        responses: {
+          "200": resp("Bukti", data(obj({
+            kind: { type: "string", enum: ["pembayaran", "pelunasan"] }, public_id: string, receipt_code: string, amount: rp(), status: string, loan_number: string, tenor_duration: integer, tenor_unit: string,
+            paid_at: string, installment_sequence: integer, received_at: string, installments_count: integer, loan_amount: rp(),
+            member_name: string, member_number: string, region_name: string, collector_name: string, collector_code: nullable(string),
+          }))),
+          "404": err("Bukti tidak ditemukan"),
+        },
+      },
+    },
+    "/api/v1/petugas/pembayaran/{id}": {
+      get: {
+        tags: ["Petugas"],
+        summary: "Data kwitansi pembayaran tunai angsuran",
+        description: "Role: Petugas (modul `my_tasks`). Hanya pembayaran tunai yang dicatat petugas ini; `receipt_code` (BYR-######-XXXXXX) dicari Admin di Verifikasi Bayar; QR berisi tautan publik `/bukti/{public_id}`.",
+        parameters: [idPath("ID pembayaran")],
+        responses: {
+          "200": resp("Kwitansi", data(obj({
+            id: integer, public_id: string, receipt_code: string, amount: rp(), paid_at: string, status: string, installment_sequence: integer, loan_number: string, tenor_duration: integer, tenor_unit: string,
+            member_name: string, member_number: string, member_phone: nullable(string), region_name: string, collector_name: string, collector_code: nullable(string),
+          }))),
+          "404": err("Kwitansi tidak ditemukan"),
+          ...UNAUTH,
+        },
       },
     },
     "/api/v1/petugas/tugas/{id}/tunda": {
@@ -920,12 +953,12 @@ export const openapi = {
       get: {
         tags: ["Petugas"],
         summary: "Data kwitansi pelunasan tunai",
-        description: "Role: Petugas (modul `my_tasks`). Hanya kwitansi yang diterima petugas ini; `receipt_code` adalah isi QR.",
+        description: "Role: Petugas (modul `my_tasks`). Hanya kwitansi yang diterima petugas ini; QR berisi tautan publik `/bukti/{public_id}`, `receipt_code` dicari Admin.",
         parameters: [{ name: "id", in: "path", required: true, schema: integer, description: "ID pengajuan pelunasan" }],
         responses: {
           "200": resp("Kwitansi", data(obj({
-            id: integer, receipt_code: string, amount: rp(), installments_count: integer, received_at: string, status: string, source: string, loan_number: string, loan_amount: rp(),
-            tenor_duration: integer, tenor_unit: string, member_name: string, member_number: string, member_address: nullable(string), region_name: string, collector_name: string, collector_code: nullable(string),
+            id: integer, public_id: string, receipt_code: string, amount: rp(), installments_count: integer, received_at: string, status: string, source: string, loan_number: string, loan_amount: rp(),
+            tenor_duration: integer, tenor_unit: string, member_name: string, member_number: string, member_phone: nullable(string), member_address: nullable(string), region_name: string, collector_name: string, collector_code: nullable(string),
           }))),
           "404": err("Kwitansi tidak ditemukan"),
           ...UNAUTH,

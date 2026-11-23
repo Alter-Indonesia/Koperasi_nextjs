@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ChipGroup } from "@/components/ui/Chip";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
-import { Textarea } from "@/components/ui/Form";
+import { SearchInput, Textarea } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
-import { api, ApiError, umumkanPembayaranBerubah, useApi, useHash } from "@/lib/api";
+import { api, ApiError, qs, umumkanPembayaranBerubah, useApi, useDebounced, useHash } from "@/lib/api";
 import { jam, rupiah, tanggalPanjang } from "@/lib/format";
 import { withFreshState } from "@/components/layout/FreshState";
 import { useSession } from "@/lib/session";
@@ -20,7 +20,7 @@ type Meta = { counts: Record<Status, number> };
 type Detail = {
   id: number; amount: number; penalty_amount: number; method: string; method_note: string | null; paid_at: string; proof_image: string | null; location_name: string | null; lat: number | null; lng: number | null;
   notes: string | null; status: Status; verification_notes: string | null; verified_at: string | null; installment_sequence: number; installment_total: number; tenor_duration: number; loan_number: string; member_name: string; member_address: string; region_name: string;
-  collector_name: string | null; verifier_name: string | null; balance_before: number; balance_after: number; verify_block: VerifyBlock;
+  collector_name: string | null; receipt_code: string | null; verifier_name: string | null; balance_before: number; balance_after: number; verify_block: VerifyBlock;
 };
 /** Tunai petugas baru bisa diverifikasi setelah setorannya diterima (menu Setoran Petugas); null = boleh */
 type VerifyBlock = "belum_disetor" | "setoran_menunggu" | "setoran_ditolak" | null;
@@ -39,7 +39,9 @@ function VerifikasiPage() {
   const [catatan, setCatatan] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ m: string; t: "ok" | "warn" } | null>(null);
-  const list = useApi<Item[], Meta>(`/api/v1/pembayaran?status=${status}`);
+  const [cari, setCari] = useState("");
+  const kata = useDebounced(cari);
+  const list = useApi<Item[], Meta>(`/api/v1/pembayaran${qs({ status, q: kata })}`);
   const hash = Number(useHash()) || null;
   const aktif = pilih ?? (hash && list.data?.some((x) => x.id === hash) ? hash : list.data?.[0]?.id ?? null);
   const detail = useApi<Detail>(aktif ? `/api/v1/pembayaran/${aktif}` : null);
@@ -86,6 +88,9 @@ function VerifikasiPage() {
           <div className="flex items-center justify-between px-2 pt-2 pb-3">
             <h2 className="text-title font-bold">Antrean ({list.data?.length ?? 0})</h2>
             <span className="text-small font-bold text-fg-muted">Terlama dulu</span>
+          </div>
+          <div className="px-2 pb-3">
+            <SearchInput value={cari} onChange={(v) => { setCari(v); pilihItem(null); }} placeholder="Cari anggota / no. pinjaman / kode bukti" className="w-full" />
           </div>
           {list.loading && !list.data && <Skeleton className="h-96" />}
           {list.data?.length === 0 && <p className="px-2 py-10 text-center text-body-sm text-fg-subtle">Tidak ada pembayaran di daftar ini</p>}
@@ -141,6 +146,7 @@ function VerifikasiPage() {
                     ["Rincian", `Angsuran ${rupiah(d.installment_total)}${d.penalty_amount ? ` + denda ${rupiah(d.penalty_amount)}` : ""}`],
                     ["Metode", d.method === "tunai" ? "Tunai (diterima petugas)" : d.method_note ?? METODE[d.method]],
                     ["Petugas", d.collector_name ?? "—"],
+                    ...(d.receipt_code ? [["Kode bukti (QR kwitansi)", d.receipt_code]] : []),
                     ["Lokasi", d.location_name ? `${d.location_name} ✓` : "—"],
                   ].map(([l, v]) => (
                     <div key={l}>

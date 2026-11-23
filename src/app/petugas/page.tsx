@@ -1,5 +1,6 @@
 "use client";
-import { MessageCircle, MoreVertical, Phone, Wallet } from "lucide-react";
+import { MessageCircle, MoreVertical, Phone, QrCode, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { withFreshState } from "@/components/layout/FreshState";
@@ -16,7 +17,7 @@ import { useSession } from "@/lib/session";
 
 type Task = {
   id: number; sequence: number; due_date: string; total_amount: number; status: string; member_name: string; member_address: string | null; member_phone: string | null;
-  region_name: string; loan_number: string; tenor_duration: number; days_overdue: number; promised_on: string | null; promise_reason: string | null;
+  region_name: string; loan_number: string; tenor_duration: number; days_overdue: number; promised_on: string | null; promise_reason: string | null; receipt_payment_id: number | null;
 };
 type Meta = {
   date: string; today: string; upcoming: { date: string; count: number }[]; total: number; done: number; postponed: number; amount_total: number; amount_done: number;
@@ -32,6 +33,7 @@ const waNumber = (hp: string) => {
 };
 
 function TugasPage() {
+  const router = useRouter();
   const { can } = useSession();
   const [tgl, setTgl] = useState<string | null>(null); // null = hari ini; selain itu salah satu tanggal dari meta.upcoming
   const { data, meta, error, loading, reload } = useApi<Task[], Meta>(`/api/v1/petugas/tugas${qs({ date: tgl })}`);
@@ -80,6 +82,9 @@ function TugasPage() {
                     <p className="truncate text-small text-fg-subtle">{t.loan_number} · angsuran ke-{t.sequence}/{t.tenor_duration} · {rupiah(t.total_amount)}</p>
                     {ditunda && t.promise_reason && <p className="truncate text-small text-warn-text">Alasan: {t.promise_reason}</p>}
                   </div>
+                  {selesai && t.receipt_payment_id && (
+                    <Button variant="outline" size="sm" aria-label={`Bukti pembayaran ${t.member_name}`} onClick={() => router.push(`/petugas/pembayaran/${t.receipt_payment_id}`)}><QrCode size={16} strokeWidth={1.5} />Bukti</Button>
+                  )}
                   {selesai ? <Badge tone="sudah-bayar">Selesai</Badge>
                     : ditunda ? <Badge tone="warn-outline">Janji {tanggalPendek(t.promised_on!)}</Badge>
                     : t.days_overdue > 0 ? <Badge tone="telat">Telat {t.days_overdue} hari</Badge>
@@ -142,6 +147,7 @@ function TugasPage() {
 
 /** Modal "Bayar": catat pembayaran tunai / transfer, atau tunda tagihan ke tanggal janji + alasan. Dipasang hanya saat terbuka sehingga isiannya selalu bersih. */
 function BayarModal({ task, meta, onClose, onDone }: { task: Task; meta: Meta; onClose: () => void; onDone: (message: string) => void }) {
+  const router = useRouter();
   const metode = (["tunai", "transfer"] as const).filter((m) => meta.methods[m]);
   const [mode, setMode] = useState<Mode>(metode[0] ?? "tunda");
   const [note, setNote] = useState("");
@@ -173,7 +179,9 @@ function BayarModal({ task, meta, onClose, onDone }: { task: Task; meta: Meta; o
         await api.post(`/api/v1/petugas/tugas/${task.id}/tunda`, { promised_on: tanggal, reason: alasan.trim() });
         onDone(`Tagihan ${task.member_name} ditunda ke ${tanggalPendek(tanggal)}`);
       } else {
-        await api.post(`/api/v1/petugas/tugas/${task.id}/bayar`, { method: mode, method_note: mode === "transfer" ? ref.trim() : undefined, notes: note.trim() || undefined });
+        const r = await api.post<{ id: number; receipt_code: string | null }>(`/api/v1/petugas/tugas/${task.id}/bayar`, { method: mode, method_note: mode === "transfer" ? ref.trim() : undefined, notes: note.trim() || undefined });
+        // tunai: langsung ke kwitansi ber-QR (cetak / unduh / kirim WA)
+        if (r.data.receipt_code) return router.push(`/petugas/pembayaran/${r.data.id}`);
         onDone(`Pembayaran ${rupiah(task.total_amount)} dari ${task.member_name} tercatat · menunggu verifikasi admin`);
       }
     } catch (x) {
