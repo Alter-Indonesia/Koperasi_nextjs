@@ -19,7 +19,7 @@ const FITUR = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [lihat, setLihat] = useState(false);
   const [ingat, setIngat] = useState(false);
@@ -35,10 +35,10 @@ export default function LoginPage() {
   async function masuk(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    if (!email.trim() || !password) return setErr("Isi email dan password");
+    if (!identifier.trim() || !password) return setErr("Isi email/no. HP dan password");
     setBusy(true);
     try {
-      const r = await api.post<{ home: string }>("/api/v1/auth/login", { email, password, remember: ingat });
+      const r = await api.post<{ home: string }>("/api/v1/auth/login", { identifier, password, remember: ingat });
       router.replace(tujuanAman(new URLSearchParams(window.location.search).get("next"), r.data.home));
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Tidak dapat terhubung ke server");
@@ -70,11 +70,11 @@ export default function LoginPage() {
         <div className="w-full max-w-[400px]">
           <div className="mb-8 lg:hidden"><Logo /></div>
           <h2 className="text-page font-bold text-fg">Masuk</h2>
-          <p className="mt-1.5 text-body text-fg-muted">Gunakan email dan password akun koperasi Anda.</p>
+          <p className="mt-1.5 text-body text-fg-muted">Masuk dengan email atau no. HP dan password akun koperasi Anda.</p>
 
           <form onSubmit={masuk} className="mt-8 flex flex-col gap-5" noValidate>
-            <Field label="Email">
-              <Input type="email" autoComplete="username" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@koperasiku.id" autoFocus />
+            <Field label="Email atau No. HP">
+              <Input type="text" autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="nama@koperasiku.id atau 0812-xxxx-xxxx" autoFocus />
             </Field>
             <Field label="Password">
               <div className="relative">

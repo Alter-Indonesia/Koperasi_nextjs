@@ -1,8 +1,10 @@
+import { ensureAssignmentsAhead } from "@/lib/queries";
 import { q, one } from "@/lib/db";
 import { handle, ok } from "@/lib/http";
 
 // GET /api/v1/dashboard — ringkasan penagihan hari ini untuk Admin
 export const GET = handle(async () => {
+  await ensureAssignmentsAhead(0); // tugas hari ini semua petugas dibentuk dari anggota yang dipegang
   const [today, active, dueToday, paidToday, arrears, flow, pending, collectors] = await Promise.all([
     one<{ d: string }>("SELECT CURRENT_DATE::text AS d"),
     one(`SELECT COUNT(*) AS count, COALESCE(SUM(remaining_balance),0) AS outstanding, COUNT(DISTINCT member_id) AS members

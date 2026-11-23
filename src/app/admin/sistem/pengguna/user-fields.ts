@@ -5,8 +5,8 @@ export type Option = { value: string; label: string };
 /** Kolom form pengguna (dipakai halaman tambah & detail). Opsi role & wilayah dibaca dari API. */
 export const userFields = (roles: Option[], regions: Option[]): FieldDef[] => [
   { key: "name", label: "Nama lengkap", type: "text", required: true, placeholder: "Siti Aminah" },
-  { key: "email", label: "Email (untuk login)", type: "email", required: true, placeholder: "nama@koperasiku.id" },
-  { key: "phone", label: "No. HP", type: "text", placeholder: "0812-xxxx-xxxx" },
+  { key: "email", label: "Email (untuk login)", type: "email", placeholder: "nama@koperasiku.id", help: "Boleh kosong bila pengguna login dengan no. HP (isi salah satu)." },
+  { key: "phone", label: "No. HP (untuk login)", type: "text", placeholder: "0812-xxxx-xxxx" },
   { key: "code", label: "Kode pengguna", type: "text", placeholder: "Kosongkan untuk otomatis", help: "Contoh: PTG-007. Kosong = dibuat otomatis." },
   { key: "role", label: "Role", type: "select", required: true, options: roles },
   { key: "region_id", label: "Wilayah", type: "select", options: regions, help: "Wajib diisi untuk petugas lapangan." },

@@ -1,14 +1,26 @@
 "use client";
-import { LogOut, MapPin } from "lucide-react";
+import { Check, LogOut, X } from "lucide-react";
 import { withFreshState } from "@/components/layout/FreshState";
 import { Avatar } from "@/components/ui/Avatar";
+import { ChangePasswordForm } from "@/components/account/ChangePasswordForm";
+import { Card } from "@/components/ui/Card";
 import { ErrorBox, Skeleton } from "@/components/ui/Feedback";
 import { Progress } from "@/components/ui/Form";
+import { Table, type Column } from "@/components/ui/Table";
 import { useApi } from "@/lib/api";
-import { persen, rupiah, rupiahRingkas } from "@/lib/format";
+import { persen, rupiah, rupiahRingkas, tanggal } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
-type Profil = { id: number; code: string | null; name: string; email: string; region_name: string | null; member_count: number; month: string; collected: number; visits: number; target: number; collection_rate: number; remaining: number };
+type Anggota = { id: number; member_number: string; name: string; phone: string | null; address: string | null; active_loans: number; arrears_amount: number };
+type Profil = { id: number; code: string | null; name: string; email: string; phone: string | null; status: string; joined_at: string | null; last_login_at: string | null; region_name: string | null; member_count: number; members: Anggota[]; month: string; collected: number; visits: number; target: number; collection_rate: number; remaining: number };
+
+const KOLOM_ANGGOTA: Column<Anggota>[] = [
+  { key: "name", header: "Anggota", render: (m) => <div className="min-w-0"><p className="truncate font-bold text-fg">{m.name}</p><p className="text-small text-fg-muted">{m.member_number}</p></div> },
+  { key: "phone", header: "No. HP", render: (m) => m.phone ?? "-" },
+  { key: "address", header: "Alamat", className: "max-md:hidden", render: (m) => <span className="line-clamp-1">{m.address ?? "-"}</span> },
+  { key: "loans", header: "Pinjaman aktif", align: "right", render: (m) => (m.active_loans > 0 ? <Check size={16} strokeWidth={2} className="ml-auto text-fg" aria-label="Punya pinjaman aktif" /> : <X size={16} strokeWidth={2} className="ml-auto text-warn-text" aria-label="Tidak ada pinjaman aktif" />) },
+  { key: "arrears", header: "Tunggakan", align: "right", render: (m) => (m.arrears_amount > 0 ? <span className="font-bold text-warn-text">{rupiah(m.arrears_amount)}</span> : "-") },
+];
 
 function ProfilPage() {
   const { logout } = useSession();
@@ -20,7 +32,7 @@ function ProfilPage() {
       {loading && !p ? (
         <Skeleton className="h-64" />
       ) : p && (
-        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:grid-cols-[repeat(2,minmax(0,1fr))] lg:gap-6">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-stretch gap-4 md:grid-cols-[repeat(2,minmax(0,1fr))] lg:gap-6">
           <div className="md:col-span-2">
             <section className="flex items-center gap-4 rounded-card bg-inverse p-5 pb-12">
               <Avatar name={p.name} size={56} tone="accent" />
@@ -39,6 +51,7 @@ function ProfilPage() {
               </div>
             </section>
           </div>
+          <div className="flex min-w-0 flex-col gap-6 md:h-full">
           <section className="rounded-card bg-card p-5">
             <div className="flex items-center justify-between">
               <span className="text-body text-fg-muted">Target {bulan}</span>
@@ -48,19 +61,36 @@ function ProfilPage() {
             <Progress value={p.collection_rate} className="mt-3" />
             <p className="mt-3 text-body-sm text-fg-muted">Sisa {rupiah(p.remaining)}</p>
           </section>
-          <section className="flex flex-col rounded-card bg-card px-5">
-            <div className="flex items-center gap-4 py-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-ctl bg-canvas text-fg"><MapPin size={16} strokeWidth={1.5} /></span>
-              <div>
-                <p className="text-body font-bold text-fg">Wilayah tugas</p>
-                <p className="text-body-sm text-fg-muted">{p.region_name ?? "Belum ditetapkan"} · {p.member_count} anggota</p>
-              </div>
-            </div>
-            <button type="button" onClick={logout} className="flex cursor-pointer items-center gap-4 border-t border-line-subtle py-4 text-left lg:hidden">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-ctl bg-warn text-on-warn"><LogOut size={16} strokeWidth={1.5} /></span>
-              <span className="text-body font-bold text-warn-text">Keluar</span>
-            </button>
+          <section className="flex-1 rounded-card bg-card p-5">
+            <p className="text-body font-bold text-fg">Biodata</p>
+            <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-3 text-body-sm">
+              {([
+                ["Nama", p.name],
+                ["Kode petugas", p.code ?? "-"],
+                ["Email", p.email],
+                ["No. HP", p.phone ?? "-"],
+                ["Wilayah tugas", p.region_name ?? "Belum ditetapkan"],
+                ["Status", p.status === "aktif" ? "Aktif" : "Nonaktif"],
+                ["Bergabung", p.joined_at ? tanggal(p.joined_at) : "-"],
+                ["Login terakhir", p.last_login_at ? tanggal(p.last_login_at) : "-"],
+              ] as const).map(([k, v]) => (
+                <div key={k} className="contents"><dt className="text-fg-muted">{k}</dt><dd className="min-w-0 truncate text-right font-bold text-fg sm:text-left">{v}</dd></div>
+              ))}
+            </dl>
           </section>
+          </div>
+          <div className="flex min-w-0 flex-col gap-6 md:h-full">
+            <ChangePasswordForm url="/api/v1/petugas/profil/password" />
+          </div>
+          <div className="md:col-span-2">
+            <Card title={`Anggota Saya · ${p.members.length}`}>
+              <Table columns={KOLOM_ANGGOTA} rows={p.members} rowKey={(m) => m.id} empty="Belum ada anggota di wilayah ini" />
+            </Card>
+          </div>
+          <button type="button" onClick={logout} className="flex cursor-pointer items-center gap-4 md:col-span-2 rounded-card bg-card p-5 text-left lg:hidden">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-ctl bg-warn text-on-warn"><LogOut size={16} strokeWidth={1.5} /></span>
+            <span className="text-body font-bold text-warn-text">Keluar</span>
+          </button>
         </div>
       )}
     </>

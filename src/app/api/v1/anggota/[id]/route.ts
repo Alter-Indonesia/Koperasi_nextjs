@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { one, q, tx } from "@/lib/db";
 import { BiodataSchema, MemberFields, buildMetadata } from "@/lib/anggota-schema";
+import { removeMemberAccount, syncMemberAccount } from "@/lib/member-account";
 import { body, currentUser, handle, HttpError, idParam, ok } from "@/lib/http";
 
 type Route = RouteContext<"/api/v1/anggota/[id]">;
@@ -21,7 +22,7 @@ export const GET = handle(async (_req: Request, ctx: Route) => {
   );
   if (!member) throw new HttpError(404, "Anggota tidak ditemukan");
   const loans = await q(
-    `SELECT id, loan_number, principal_amount, tenor_duration, tenor_unit, installment_amount, status, remaining_balance, arrears_amount, collectibility
+    `SELECT id, loan_number, principal_amount, loan_amount, tenor_duration, tenor_unit, installment_amount, status, remaining_balance, arrears_amount, collectibility
      FROM v_loans WHERE member_id = $1 ORDER BY id DESC`,
     [id],
   );
@@ -70,6 +71,7 @@ export const PATCH = handle(async (req: Request, ctx: Route) => {
       [id, n.name, n.national_id, n.phone, n.address, n.region_id, n.status, JSON.stringify(n.biodata), JSON.stringify(metadata),
        d.allow_partial_payment === undefined ? cur.allow_partial_payment : d.allow_partial_payment, currentUser().id],
     );
+    await syncMemberAccount(c, id, currentUser().id);
     return { id, member_number: cur.member_number, name: n.name };
   });
   return ok(res);
@@ -84,6 +86,7 @@ export const DELETE = handle(async (_req: Request, ctx: Route) => {
     const running = Number((await c.query("SELECT COUNT(*) AS n FROM loans WHERE member_id = $1 AND deleted_at IS NULL AND status IN ('pengajuan', 'aktif')", [id])).rows[0].n);
     if (running) throw new HttpError(409, `Anggota tidak bisa dihapus: masih punya ${running} pinjaman berjalan`);
     await c.query("UPDATE members SET deleted_at = now(), deleted_by = $2, updated_by = $2 WHERE id = $1", [id, currentUser().id]);
+    await removeMemberAccount(c, id, currentUser().id);
     return { id, member_number: cur.member_number, name: cur.name, deleted: true };
   });
   return ok(res);

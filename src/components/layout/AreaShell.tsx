@@ -41,7 +41,7 @@ function Shell({ area, children }: { area: Area; children: React.ReactNode }) {
   const profileMenu = SYSTEM_MENU.map(toItem).filter((i): i is NavItem => !!i); // Sistem (Pengguna, Role, Log, Pengaturan) ada di menu profil
 
   return (
-    <AppShell groups={groups} profileMenu={profileMenu} user={user ? { name: user.name, role: roleName ?? "", email: user.email } : null} onLogout={logout} responsive={area === "petugas"}>
+    <AppShell groups={groups} profileMenu={profileMenu} user={user ? { name: user.name, role: roleName ?? "", email: user.email ?? undefined } : null} onLogout={logout} responsive={area === "petugas" || area === "anggota"}>
       {allowed ? children : null}
     </AppShell>
   );

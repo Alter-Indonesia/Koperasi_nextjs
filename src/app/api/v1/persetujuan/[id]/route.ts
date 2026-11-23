@@ -11,7 +11,7 @@ export const GET = handle(async (_req: Request, ctx: Route) => {
   const id = idParam((await ctx.params).id);
   const r = await one(
     `SELECT l.id, l.loan_number, l.member_id, m.name AS member_name, m.member_number, m.phone AS member_phone, r.name AS region_name,
-            l.principal_amount, l.tenor_duration, l.tenor_unit, l.admin_fee, l.admin_fee_mode, l.interest_rate_percent, l.installment_amount, l.purpose, l.collateral, l.disbursed_on, l.status,
+            l.principal_amount, l.loan_amount, l.tenor_duration, l.tenor_unit, l.admin_fee, l.admin_fee_mode, l.interest_rate_percent, l.installment_amount, l.purpose, l.collateral, l.disbursed_on, l.status,
             l.created_at, l.updated_at, s.name AS submitted_by_name, d.name AS decided_by_name, l.decided_at, l.decision_notes,
             (SELECT COUNT(*) FROM v_loans v WHERE v.member_id = l.member_id AND v.status = 'aktif') AS member_active_loans,
             (SELECT COALESCE(SUM(v.remaining_balance), 0) FROM v_loans v WHERE v.member_id = l.member_id AND v.status = 'aktif') AS member_outstanding
@@ -38,7 +38,7 @@ export const POST = handle(async (req: Request, ctx: Route) => {
     if (!l) throw new HttpError(404, "Pengajuan tidak ditemukan");
     if (l.status !== "pengajuan") throw new HttpError(409, "Pengajuan ini sudah diputuskan");
     if (d.action === "approve") {
-      await createSchedule(c, id, { disbursed_on: l.disbursed_on, principal_amount: loanAmounts(Number(l.principal_amount), Number(l.admin_fee), l.admin_fee_mode).financed, interest_rate_percent: Number(l.interest_rate_percent), duration: l.tenor_duration, unit: l.tenor_unit }, me.id);
+      await createSchedule(c, id, { disbursed_on: l.disbursed_on, principal_amount: loanAmounts(Number(l.loan_amount), Number(l.admin_fee), l.admin_fee_mode).financed, interest_rate_percent: Number(l.interest_rate_percent), duration: l.tenor_duration, unit: l.tenor_unit }, me.id);
     }
     await c.query("UPDATE loans SET status = $2, decided_by = $3, decided_at = now(), decision_notes = $4, updated_by = $3 WHERE id = $1", [
       id, d.action === "approve" ? "aktif" : "ditolak", me.id, d.notes ?? null,

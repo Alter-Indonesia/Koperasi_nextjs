@@ -10,7 +10,7 @@ import { useApi, useHash } from "@/lib/api";
 import { angka, rupiah, rupiahRingkas, tanggal, tenorLabel, type TenorUnit } from "@/lib/format";
 import { withFreshState } from "@/components/layout/FreshState";
 
-type Row = { id: number; loan_number: string; member_name: string; member_number: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; purpose: string | null; collateral: string | null; created_at: string; submitted_by_name: string | null };
+type Row = { id: number; loan_number: string; member_name: string; member_number: string; region_name: string; loan_amount: number; tenor_duration: number; tenor_unit: TenorUnit; purpose: string | null; collateral: string | null; created_at: string; submitted_by_name: string | null };
 type Meta = { summary: { pending: number; pending_amount: number; approved_today: number; rejected_today: number } };
 
 function PersetujuanPage() {
@@ -20,10 +20,10 @@ function PersetujuanPage() {
   const s = meta?.summary;
   return (
     <>
-      <PageHeader title="Persetujuan Pinjaman" subtitle="Pengajuan di atas Rp 20 juta memerlukan keputusan Owner" />
+      <PageHeader title="Persetujuan Pinjaman" subtitle="Pengajuan di atas batas persetujuan memerlukan keputusan Owner" />
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
         <StatCard tone="accent" label="Menunggu Keputusan" value={s ? angka(s.pending) : "…"} note="pengajuan" />
-        <StatCard inverse label="Nilai Pengajuan" value={s ? rupiahRingkas(s.pending_amount) : "…"} note="total plafon menunggu" />
+        <StatCard inverse label="Nilai Pengajuan" value={s ? rupiahRingkas(s.pending_amount) : "…"} note="total pinjaman menunggu" />
         <StatCard label="Disetujui Hari Ini" value={s ? angka(s.approved_today) : "…"} />
         <StatCard label="Ditolak Hari Ini" value={s ? angka(s.rejected_today) : "…"} />
       </div>
@@ -40,7 +40,7 @@ function PersetujuanPage() {
               { key: "d", header: "Detail", className: "w-[64px]", render: (r) => <DetailLink href={`/owner/persetujuan/${r.id}`} label={r.loan_number} /> },
               { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.member_name} size={32} tone={avatarTone(i)} />} title={r.member_name} sub={`${r.member_number} · ${r.region_name}`} /> },
               { key: "n", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.loan_number}</span> },
-              { key: "p", header: "Plafon", render: (r) => <b>{rupiah(r.principal_amount)}</b> },
+              { key: "p", header: "Pinjaman", render: (r) => <b>{rupiah(r.loan_amount)}</b> },
               { key: "t", header: "Tenor", render: (r) => tenorLabel(r.tenor_duration, r.tenor_unit, true) },
               { key: "u", header: "Tujuan", render: (r) => r.purpose ?? "—" },
               { key: "j", header: "Jaminan", render: (r) => r.collateral ?? "—" },

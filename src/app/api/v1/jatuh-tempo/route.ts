@@ -34,7 +34,7 @@ export const GET = handle(async (req: Request) => {
        SELECT * FROM (
        SELECT i.id, i.loan_id, i.sequence, i.due_date, i.total_amount, i.status, l.tenor_duration, l.tenor_unit, l.loan_number,
               m.name AS member_name, r.name AS region_name,
-              COALESCE(ac.name, rc.name) AS collector_name,
+              COALESCE(rc.name, ac.name) AS collector_name,
               GREATEST(0, (SELECT d FROM h) - i.due_date) AS days_overdue,
               lg.channel AS reminder_channel, lg.status AS reminder_status
        FROM installments i
@@ -42,7 +42,7 @@ export const GET = handle(async (req: Request) => {
        JOIN members m ON m.id = l.member_id
        JOIN regions r ON r.id = m.region_id
        LEFT JOIN LATERAL (SELECT u.name FROM assignments t JOIN users u ON u.id = t.collector_id WHERE t.installment_id = i.id ORDER BY t.assigned_on DESC LIMIT 1) ac ON true
-       LEFT JOIN LATERAL (SELECT u.name FROM users u WHERE u.role = 'petugas' AND u.region_id = m.region_id LIMIT 1) rc ON true
+       LEFT JOIN users rc ON rc.id = m.collector_id AND rc.role = 'petugas' AND rc.status = 'aktif' AND rc.deleted_at IS NULL
        LEFT JOIN LATERAL (SELECT g.channel, g.status FROM reminder_logs g WHERE g.installment_id = i.id ORDER BY g.sent_at DESC LIMIT 1) lg ON true
        WHERE CASE $3::text
          WHEN 'overdue' THEN i.status = 'belum' AND i.due_date < (SELECT d FROM h)

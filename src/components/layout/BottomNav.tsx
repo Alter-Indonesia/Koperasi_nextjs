@@ -9,7 +9,7 @@ export function BottomNav({ groups }: { groups: NavGroup[] }) {
   const path = usePathname();
   const items = groups.flatMap((g) => g.items).filter((i) => !i.children);
   return (
-    <nav aria-label="Menu utama" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label="Menu utama" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden">
       <ul className="mx-auto flex max-w-[720px]">
         {items.map((it) => {
           const on = it.exact ? path === it.href : path === it.href || path.startsWith(it.href + "/");

@@ -17,7 +17,7 @@ export type Row = {
 export type Kartu = { bucket: "overdue" | "today" | "tomorrow" | "h3"; label: string; count: number; amount: number };
 
 type Loan = {
-  id: number; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; installment_amount: number; interest_rate_percent: number; remaining_balance: number; arrears_amount: number;
+  id: number; loan_amount: number; tenor_duration: number; tenor_unit: TenorUnit; installment_amount: number; interest_rate_percent: number; remaining_balance: number; arrears_amount: number;
   collectibility: Kolektibilitas; purpose: string | null; collateral: string | null; disbursed_on: string | null; paid_installments: number; status: string;
   installments: { id: number; sequence: number; due_date: string; total_amount: number; status: string }[];
 };
@@ -30,7 +30,7 @@ function Rincian({ row, date }: { row: Row; date: string }) {
   const telat = d.installments.filter((x) => x.status === "belum" && x.due_date < date);
   const per = d.tenor_unit === "hari" ? "hari" : "bln";
   const info: [string, React.ReactNode][] = [
-    ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / ${per} flat`],
+    ["Pinjaman", rupiah(d.loan_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / ${per} flat`],
     ["Sisa pinjaman", rupiah(d.remaining_balance)], ["Tunggakan", rupiah(d.arrears_amount)], ["Kolektibilitas", <KolBadge key="k" value={d.collectibility} />], ["Terbayar", `${d.paid_installments} / ${d.tenor_duration} angsuran`],
     ["Tanggal cair", d.disbursed_on ? tanggal(d.disbursed_on) : "—"], ["Tujuan", d.purpose ?? "—"], ["Jaminan", d.collateral ?? "—"],
   ];

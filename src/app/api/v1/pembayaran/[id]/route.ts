@@ -1,5 +1,6 @@
 import { one } from "@/lib/db";
 import { handle, HttpError, idParam, ok } from "@/lib/http";
+import { VERIFY_BLOCK } from "@/lib/queries";
 
 // GET /api/v1/pembayaran/:id — detail bukti pembayaran + efek ke saldo pinjaman
 export const GET = handle(async (_req: Request, ctx: RouteContext<"/api/v1/pembayaran/[id]">) => {
@@ -9,8 +10,10 @@ export const GET = handle(async (_req: Request, ctx: RouteContext<"/api/v1/pemba
             p.notes, p.status, p.verification_notes, p.verified_at,
             i.sequence AS installment_sequence, i.total_amount AS installment_total, i.due_date, i.status AS installment_status,
             l.id AS loan_id, l.loan_number, l.tenor_duration, l.tenor_unit, m.name AS member_name, m.address AS member_address, r.name AS region_name,
-            c.name AS collector_name, v.name AS verifier_name, vl.remaining_balance
+            c.name AS collector_name, v.name AS verifier_name, vl.remaining_balance,
+            ${VERIFY_BLOCK} AS verify_block
      FROM payments p
+     LEFT JOIN cash_deposits d ON d.id = p.deposit_id
      JOIN installments i ON i.id = p.installment_id
      JOIN loans l ON l.id = i.loan_id
      JOIN v_loans vl ON vl.id = l.id

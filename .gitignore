@@ -44,3 +44,6 @@ next-env.d.ts
 
 # foto KTP anggota (data pribadi) — jangan di-commit. Model OCR storage/tessdata/ikut repo
 /storage/ktp/
+
+# bukti transfer pelunasan (data pribadi) — jangan di-commit
+/storage/proofs/

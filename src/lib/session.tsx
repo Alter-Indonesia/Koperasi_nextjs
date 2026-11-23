@@ -4,7 +4,7 @@ import { api, useApi } from "@/lib/api";
 import { can as canDo, type Action, type Area, type Module, type PermissionMap } from "@/lib/permissions";
 
 export type Role = string;
-export type User = { id: number; code: string | null; name: string; email: string; role: Role; region_id: number | null; region_name: string | null };
+export type User = { id: number; code: string | null; name: string; email: string | null; role: Role; region_id: number | null; region_name: string | null };
 
 type Me = { user: User; role_name: string; area: Area; home: string; permissions: PermissionMap };
 type Sesi = {

@@ -1,21 +1,29 @@
-import { z } from "zod";
-import { q } from "@/lib/db";
-import { body, created, currentUser, handle } from "@/lib/http";
-import { TAGIHAN_TERBUKA } from "@/lib/queries";
+import { tx } from "@/lib/db";
+import { created, currentUser, handle } from "@/lib/http";
 
-const Auto = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
-
-// POST /api/v1/penugasan/otomatis — bagi tagihan yang belum ditugaskan ke petugas sesuai wilayah anggota
-export const POST = handle(async (req: Request) => {
-  const { date } = await body(req, Auto);
-  const rows = await q(
-    `INSERT INTO assignments (installment_id, collector_id, assigned_on, created_by, updated_by)
-     SELECT t.id, u.id, $1::date, $2::int, $2::int
-     FROM (${TAGIHAN_TERBUKA}) t
-     JOIN LATERAL (SELECT id FROM users WHERE role = 'petugas' AND status = 'aktif' AND deleted_at IS NULL AND region_id = t.region_id ORDER BY id LIMIT 1) u ON true
-     WHERE NOT EXISTS (SELECT 1 FROM assignments s WHERE s.installment_id = t.id AND s.assigned_on = $1::date)
-     RETURNING id`,
-    [date, currentUser().id],
-  );
-  return created({ assigned: rows.length });
+// POST /api/v1/penugasan/otomatis — bagi anggota yang belum punya petugas ke petugas di wilayahnya, bergiliran ke yang paling sedikit memegang anggota
+export const POST = handle(async () => {
+  const me = currentUser();
+  const assigned = await tx(async (c) => {
+    const collectors = (await c.query<{ id: number; region_id: number; n: number }>(
+      `SELECT u.id, u.region_id, (SELECT COUNT(*) FROM members h WHERE h.collector_id = u.id AND h.deleted_at IS NULL)::int AS n
+       FROM users u WHERE u.role = 'petugas' AND u.status = 'aktif' AND u.deleted_at IS NULL AND u.region_id IS NOT NULL`,
+    )).rows;
+    const pending = (await c.query<{ id: number; region_id: number }>(
+      `SELECT m.id, m.region_id FROM members m
+       WHERE m.deleted_at IS NULL AND m.status = 'aktif'
+         AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = m.collector_id AND u.role = 'petugas' AND u.status = 'aktif' AND u.deleted_at IS NULL)
+       ORDER BY m.id FOR UPDATE OF m`,
+    )).rows;
+    let n = 0;
+    for (const m of pending) {
+      const target = collectors.filter((p) => p.region_id === m.region_id).sort((a, b) => a.n - b.n || a.id - b.id)[0];
+      if (!target) continue; // wilayah tanpa petugas: tetap di daftar "belum punya petugas"
+      await c.query("UPDATE members SET collector_id = $2, updated_by = $3 WHERE id = $1", [m.id, target.id, me.id]);
+      target.n++;
+      n++;
+    }
+    return n;
+  });
+  return created({ assigned });
 }, { module: "assignments", log: "auto_assign" });

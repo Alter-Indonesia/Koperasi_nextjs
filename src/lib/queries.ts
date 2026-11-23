@@ -1,5 +1,8 @@
 import "server-only";
 import type { PoolClient } from "pg";
+import { q } from "@/lib/db";
+import { SUPERADMIN_ROLE } from "@/lib/permissions";
+import { getSetting } from "@/lib/settings";
 
 export const MAX_COLLECTOR_LOAD = 30;
 
@@ -13,6 +16,41 @@ export const TAGIHAN_TERBUKA = `
   JOIN regions r ON r.id = m.region_id
   WHERE i.status = 'belum' AND i.due_date <= $1::date
   ORDER BY i.loan_id, i.due_date`;
+
+/**
+ * Petugas memegang anggota secara tetap (members.collector_id). Penugasan harian (assignments) dibentuk dari situ: tagihan terbuka
+ * (TAGIHAN_TERBUKA) anggota yang dipegang ditugaskan ke pemegangnya untuk tanggal `date` (hari ini atau ke depan). Idempoten; tagihan yang
+ * dijanjikan dibayar setelah `date` tidak ikut. `collectorId` kosong = semua petugas. Dipanggil sebelum membaca tugas petugas.
+ */
+export async function ensureAssignments(date: string, collectorId?: number | null) {
+  await q(
+    `INSERT INTO assignments (installment_id, collector_id, assigned_on)
+     SELECT t.id, m.collector_id, $1::date
+     FROM (${TAGIHAN_TERBUKA}) t
+     JOIN loans l ON l.id = t.loan_id
+     JOIN members m ON m.id = l.member_id
+     WHERE $1::date >= CURRENT_DATE AND m.collector_id IS NOT NULL AND ($2::int IS NULL OR m.collector_id = $2)
+       AND ($1::date <= CURRENT_DATE OR NOT EXISTS (SELECT 1 FROM payment_promises pr WHERE pr.installment_id = t.id AND pr.deleted_at IS NULL AND pr.promised_on > $1::date))
+     ON CONFLICT (installment_id, assigned_on) DO NOTHING`,
+    [date, collectorId ?? null],
+  );
+}
+
+/**
+ * Ekspresi SQL (butuh alias p = payments dan d = cash_deposits yang di-LEFT JOIN lewat p.deposit_id): mengapa pembayaran tunai petugas belum boleh diverifikasi.
+ * null = boleh. Nilai: belum_disetor · setoran_menunggu · setoran_ditolak. Aturan yang sama dipaksa di POST /pembayaran/{id}/verifikasi.
+ */
+export const VERIFY_BLOCK = `CASE WHEN p.status = 'menunggu' AND p.method = 'tunai' AND p.collector_id IS NOT NULL THEN
+    CASE WHEN d.id IS NULL THEN 'belum_disetor' WHEN d.status = 'menunggu' THEN 'setoran_menunggu' WHEN d.status = 'ditolak' THEN 'setoran_ditolak' END
+  END`;
+
+/** Plafon pinjaman + batas persetujuan Owner (Sistem › Pengaturan) + apakah pengguna ini boleh melebihi plafon (Owner/superadmin, bila pengaturan mengizinkan). */
+export async function loanCeilingFor(roleCode: string) {
+  const [ceiling, ownerOverride, approvalLimit] = await Promise.all([
+    getSetting<number>("loan_ceiling", 20_000_000), getSetting<boolean>("loan_ceiling_owner_override", true), getSetting<number>("loan_approval_limit", 20_000_000),
+  ]);
+  return { ceiling: Number(ceiling), can_exceed: roleCode === SUPERADMIN_ROLE && ownerOverride, approval_limit: Number(approvalLimit) };
+}
 
 export type LoanTerms = { disbursed_on: string; principal_amount: number; interest_rate_percent: number; duration: number; unit: "bulan" | "hari" };
 
@@ -30,4 +68,10 @@ export async function createSchedule(c: PoolClient, loanId: number, t: LoanTerms
             $3::numeric, $4::numeric, $3::numeric + $4::numeric, $6::int, $6::int FROM generate_series(1, $5::int) k`,
     [loanId, t.disbursed_on, principalPart, interestPart, t.duration, userId, t.unit],
   );
+}
+
+/** ensureAssignments untuk hari ini sampai `days` hari ke depan. */
+export async function ensureAssignmentsAhead(days: number, collectorId?: number | null) {
+  const dates = await q<{ d: string }>("SELECT (CURRENT_DATE + g)::text AS d FROM generate_series(0, $1::int) g ORDER BY g", [days]);
+  for (const { d } of dates) await ensureAssignments(d, collectorId);
 }

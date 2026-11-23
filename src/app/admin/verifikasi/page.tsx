@@ -15,13 +15,21 @@ import { withFreshState } from "@/components/layout/FreshState";
 import { useSession } from "@/lib/session";
 
 type Status = "menunggu" | "terverifikasi" | "ditolak";
-type Item = { id: number; amount: number; method: string; method_note: string | null; paid_at: string; member_name: string; loan_number: string; installment_sequence: number; tenor_duration: number; collector_name: string | null; status: Status };
+type Item = { id: number; amount: number; method: string; method_note: string | null; paid_at: string; member_name: string; loan_number: string; installment_sequence: number; tenor_duration: number; collector_name: string | null; status: Status; verify_block: VerifyBlock };
 type Meta = { counts: Record<Status, number> };
 type Detail = {
   id: number; amount: number; penalty_amount: number; method: string; method_note: string | null; paid_at: string; proof_image: string | null; location_name: string | null; lat: number | null; lng: number | null;
   notes: string | null; status: Status; verification_notes: string | null; verified_at: string | null; installment_sequence: number; installment_total: number; tenor_duration: number; loan_number: string; member_name: string; member_address: string; region_name: string;
-  collector_name: string | null; verifier_name: string | null; balance_before: number; balance_after: number;
+  collector_name: string | null; verifier_name: string | null; balance_before: number; balance_after: number; verify_block: VerifyBlock;
 };
+/** Tunai petugas baru bisa diverifikasi setelah setorannya diterima (menu Setoran Petugas); null = boleh */
+type VerifyBlock = "belum_disetor" | "setoran_menunggu" | "setoran_ditolak" | null;
+const BLOCK_TEXT: Record<Exclude<VerifyBlock, null>, string> = {
+  belum_disetor: "Uang tunai ini belum disetor petugas ke kasir. Verifikasi bisa dilakukan setelah petugas menyetor dan setorannya diterima.",
+  setoran_menunggu: "Setoran petugas untuk uang tunai ini belum diterima. Terima setorannya dulu di menu Setoran Petugas, lalu verifikasi pembayaran ini.",
+  setoran_ditolak: "Setoran petugas untuk uang tunai ini ditolak. Petugas harus menyetor ulang dan setorannya diterima sebelum pembayaran ini bisa diverifikasi.",
+};
+const BLOCK_SHORT: Record<Exclude<VerifyBlock, null>, string> = { belum_disetor: "belum disetor", setoran_menunggu: "setoran menunggu", setoran_ditolak: "setoran ditolak" };
 const METODE: Record<string, string> = { tunai: "Tunai", transfer: "Transfer", qris: "QRIS" };
 
 function VerifikasiPage() {
@@ -93,6 +101,7 @@ function VerifikasiPage() {
                     <div className="truncate text-body font-bold">{it.member_name}</div>
                     <div className="truncate text-small text-fg-subtle">
                       {METODE[it.method]}{it.collector_name ? ` · via ${it.collector_name.split(" ")[0]}` : it.method_note ? ` · ${it.method_note.replace("Transfer ", "")}` : ""} · {jam(it.paid_at)}
+                      {it.verify_block && <span className="font-bold text-warn-text"> · {BLOCK_SHORT[it.verify_block]}</span>}
                     </div>
                   </div>
                   <b className="text-body-sm">{rupiah(it.amount)}</b>
@@ -151,13 +160,14 @@ function VerifikasiPage() {
               </div>
               {d.status === "menunggu" && can("payments", "update") && (
                 <>
+                  {d.verify_block && <p className="mt-6 rounded-ctl border border-warn bg-card px-4 py-3 text-body-sm text-warn-text">{BLOCK_TEXT[d.verify_block]}</p>}
                   <label className="mt-6 block">
                     <span className="text-body-sm font-bold">Catatan verifikasi</span>
                     <Textarea className="mt-2" value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Wajib diisi bila menolak — misalnya nominal tidak sesuai" />
                   </label>
                   <div className="mt-6 flex items-center justify-between border-t border-line-subtle pt-6">
                     <Button variant="danger" size="xl" disabled={busy || !catatan.trim()} title={!catatan.trim() ? "Isi alasan penolakan dulu" : undefined} onClick={() => proses("tolak")}>Tolak & Tagih Ulang</Button>
-                    <Button size="xl" disabled={busy} onClick={() => proses("verifikasi")}>Verifikasi & Update Saldo</Button>
+                    <Button size="xl" disabled={busy || !!d.verify_block} title={d.verify_block ? "Terima setoran petugas dulu" : undefined} onClick={() => proses("verifikasi")}>Verifikasi & Update Saldo</Button>
                   </div>
                 </>
               )}

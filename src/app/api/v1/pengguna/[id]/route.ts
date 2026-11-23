@@ -2,6 +2,7 @@ import { z } from "zod";
 import { one, q, tx } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { body, currentUser, handle, HttpError, idParam, ok } from "@/lib/http";
+import { normalizePhone } from "@/lib/phone";
 import { UserFields } from "@/lib/system-schema";
 
 type Route = RouteContext<"/api/v1/pengguna/[id]">;
@@ -40,15 +41,19 @@ export const PATCH = handle(async (req: Request, ctx: Route) => {
     if (d.region_id && !(await c.query("SELECT 1 FROM regions WHERE id = $1 AND deleted_at IS NULL", [d.region_id])).rowCount) throw new HttpError(422, "Wilayah tidak ditemukan");
     if (d.email && (await c.query("SELECT 1 FROM users WHERE lower(email) = $1 AND id <> $2 AND deleted_at IS NULL", [d.email, id])).rowCount) throw new HttpError(409, "Email sudah dipakai pengguna lain");
     if (d.code && (await c.query("SELECT 1 FROM users WHERE code = $1 AND id <> $2 AND deleted_at IS NULL", [d.code, id])).rowCount) throw new HttpError(409, "Kode pengguna sudah dipakai");
+    if (d.phone && normalizePhone(d.phone) && (await c.query("SELECT 1 FROM users WHERE normalize_phone(phone) = $1 AND id <> $2 AND deleted_at IS NULL", [normalizePhone(d.phone), id])).rowCount)
+      throw new HttpError(409, "No. HP sudah dipakai pengguna lain");
     await c.query(
       `UPDATE users SET code = CASE WHEN $2::boolean THEN $3 ELSE code END, name = COALESCE($4, name), email = COALESCE($5, email),
                         phone = CASE WHEN $6::boolean THEN $7 ELSE phone END, role = COALESCE($8, role),
                         region_id = CASE WHEN $9::boolean THEN $10 ELSE region_id END, status = COALESCE($11, status),
                         password_hash = COALESCE($12, password_hash), updated_by = $13
        WHERE id = $1`,
-      [id, "code" in d, d.code || null, d.name ?? null, d.email ?? null, "phone" in d, d.phone || null, d.role ?? null, "region_id" in d, d.region_id ?? null,
+      [id, "code" in d, d.code || null, d.name ?? null, d.email || null, "phone" in d, d.phone || null, d.role ?? null, "region_id" in d, d.region_id ?? null,
        d.status ?? null, d.password ? await hashPassword(d.password) : null, me.id],
     );
+    // akun anggota: no. HP / nama / status ikut ke data anggota
+    if ("phone" in d || d.name) await c.query("UPDATE members SET phone = CASE WHEN $2::boolean THEN COALESCE($3, phone) ELSE phone END, name = COALESCE($4, name), updated_by = $5 WHERE user_id = $1 AND deleted_at IS NULL", [id, "phone" in d, d.phone || null, d.name ?? null, me.id]);
     // password diganti / akun dinonaktifkan: putus semua sesi login pengguna itu
     if (d.password || d.status === "nonaktif") await c.query("DELETE FROM sessions WHERE user_id = $1", [id]);
     return { id, name: d.name ?? cur.name, email: d.email ?? cur.email };

@@ -17,7 +17,7 @@ import { useSession } from "@/lib/session";
 type Detail = Initial & {
   id: number; member_number: string; region_name: string; joined_on: string;
   created_at: string; updated_at: string; created_by_name: string | null; updated_by_name: string | null;
-  loans: { id: number; loan_number: string; principal_amount: number; tenor_duration: number; status: string; remaining_balance: number; collectibility: Kolektibilitas }[];
+  loans: { id: number; loan_number: string; loan_amount: number; tenor_duration: number; status: string; remaining_balance: number; collectibility: Kolektibilitas }[];
 };
 
 const time = (t: string) => `${tanggal(t)}, ${jam(t)}`;
@@ -106,7 +106,7 @@ function DetailAnggotaPage({ params }: PageProps<"/admin/anggota/[id]">) {
               empty="Belum ada pinjaman"
               columns={[
                 { key: "no", header: "No.", render: (r) => <Link href={`/admin/pinjaman/${r.id}`} className="font-medium hover:underline">{r.loan_number}</Link> },
-                { key: "pl", header: "Plafon", render: (r) => rupiah(r.principal_amount) },
+                { key: "pl", header: "Pinjaman", render: (r) => rupiah(r.loan_amount) },
                 { key: "kl", header: "Status", render: (r) => (r.status === "aktif" ? <KolBadge value={r.collectibility} /> : <span className="capitalize text-fg-muted">{r.status}</span>) },
               ]}
             />

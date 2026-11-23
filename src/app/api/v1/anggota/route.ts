@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { q, one } from "@/lib/db";
+import { q, one, tx } from "@/lib/db";
+import { syncMemberAccount } from "@/lib/member-account";
 import { MemberFields, BiodataSchema, buildMetadata } from "@/lib/anggota-schema";
 import { body, created, currentUser, handle, HttpError, intParam, ok } from "@/lib/http";
 
@@ -55,11 +56,16 @@ export const POST = handle(async (req: Request) => {
   if (!region) throw new HttpError(422, "Wilayah tidak ditemukan");
   if (await one("SELECT 1 FROM members WHERE national_id = $1 AND deleted_at IS NULL", [d.national_id])) throw new HttpError(409, "NIK sudah terdaftar sebagai anggota lain");
   const metadata = buildMetadata({ ...d, region_name: region.name });
-  const r = await one(
+  const me = currentUser();
+  const r = await tx(async (c) => {
+    const m = (await c.query(
     `INSERT INTO members (member_number, name, national_id, phone, address, region_id, principal_savings, biodata, metadata, allow_partial_payment, created_by, updated_by)
      VALUES ('AG-' || LPAD(((SELECT COALESCE(MAX(id),0) FROM members) + 1000)::text, 4, '0'), $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $10)
      RETURNING id, member_number, name`,
-    [d.name, d.national_id, d.phone, d.address, d.region_id, d.principal_savings, JSON.stringify(d.biodata), JSON.stringify(metadata), d.allow_partial_payment, currentUser().id],
-  );
+    [d.name, d.national_id, d.phone, d.address, d.region_id, d.principal_savings, JSON.stringify(d.biodata), JSON.stringify(metadata), d.allow_partial_payment, me.id],
+    )).rows[0];
+    await syncMemberAccount(c, m.id, me.id); // akun login (no. HP) dibuat otomatis
+    return m;
+  });
   return created(r);
 }, { module: "members" });
