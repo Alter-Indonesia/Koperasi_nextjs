@@ -16,7 +16,7 @@ import { withFreshState } from "@/components/layout/FreshState";
 import { useSession } from "@/lib/session";
 
 type Loan = {
-  id: number; loan_number: string; member_name: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; installment_amount: number;
+  id: number; loan_number: string; member_name: string; region_name: string; loan_amount: number; tenor_duration: number; tenor_unit: TenorUnit; installment_amount: number;
   next_due_date: string | null; remaining_balance: number; paid_installments: number; days_overdue: number; collectibility: Kolektibilitas;
 };
 type Meta = { page: number; limit: number; total: number; outstanding: number; total_active: number; collectibility: Record<Kolektibilitas, number> };
@@ -64,7 +64,7 @@ function PinjamanPage() {
               columns={[
                 { key: "no", header: "No. Pinjaman", render: (r) => <span className="font-medium">{r.loan_number}</span> },
                 { key: "ag", header: "Anggota", render: (r) => <CellStack title={r.member_name} sub={r.region_name} /> },
-                { key: "pl", header: "Plafon", render: (r) => rupiah(r.principal_amount) },
+                { key: "pl", header: "Pinjaman", render: (r) => rupiah(r.loan_amount) },
                 { key: "tn", header: "Tenor", render: (r) => tenorLabel(r.tenor_duration, r.tenor_unit, true) },
                 { key: "an", header: "Angsuran/bln", render: (r) => rupiah(r.installment_amount) },
                 { key: "jt", header: "Jatuh Tempo", render: (r) => (r.next_due_date ? <span className={r.days_overdue > 0 ? "font-bold text-warn-text" : ""}>{tanggalPendek(r.next_due_date)}</span> : "—") },

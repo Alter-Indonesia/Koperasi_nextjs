@@ -11,10 +11,10 @@ import { jam, rupiah, tanggalPanjang, tanggalPendek } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
 type Pay = { id: number; amount: number; method: string; paid_at: string; deposit_id: number | null; member_name: string };
-type Deposit = { id: number; deposited_on: string; amount: number; payment_count: number; status: "menunggu" | "cocok" | "selisih"; received_by_name: string | null };
-type Data = { cash_on_hand: { amount: number; count: number }; non_cash: { amount: number; count: number }; today: Pay[]; deposits: Deposit[] };
+type Deposit = { id: number; deposited_on: string; amount: number; payment_count: number; status: "menunggu" | "cocok" | "selisih" | "ditolak"; received_amount: number | null; returned_amount: number; notes: string | null; received_by_name: string | null };
+type Data = { cash_on_hand: { amount: number; count: number; returned_amount: number }; non_cash: { amount: number; count: number }; today: Pay[]; deposits: Deposit[] };
 const METODE: Record<string, string> = { tunai: "Tunai", transfer: "Transfer", qris: "QRIS" };
-const STATUS: Record<Deposit["status"], string> = { menunggu: "Menunggu kasir", cocok: "Cocok", selisih: "Selisih" };
+const STATUS: Record<Deposit["status"], string> = { menunggu: "Menunggu kasir", cocok: "Cocok", selisih: "Selisih", ditolak: "Ditolak kasir" };
 
 function SetoranPage() {
   const { can } = useSession();
@@ -50,9 +50,9 @@ function SetoranPage() {
             <section className="flex flex-col gap-2 rounded-card bg-inverse p-5">
               <span className="text-body font-medium text-fg-inverse-muted">Uang tunai yang Anda pegang</span>
               <span className="text-kpi font-bold text-accent">{rupiah(tangan?.amount)}</span>
-              <span className="text-body-sm text-fg-inverse-muted">dari {tangan?.count ?? 0} pembayaran tunai</span>
+              <span className="text-body-sm text-fg-inverse-muted">dari {tangan?.count ?? 0} pembayaran tunai{tangan?.returned_amount ? ` + ${rupiah(tangan.returned_amount)} dikembalikan kasir` : ""}</span>
               <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-3">
-                {can("my_deposits", "create") && <Button variant="accent" size="lg" disabled={!tangan?.count} onClick={() => setKonfirmasi(true)}>Setor ke Kasir</Button>}
+                {can("my_deposits", "create") && <Button variant="accent" size="lg" disabled={!tangan?.amount} onClick={() => setKonfirmasi(true)}>Setor ke Kasir</Button>}
                 <span className="text-body-sm font-bold text-fg-inverse">Batas setor {meta?.deadline}</span>
               </div>
             </section>
@@ -92,11 +92,13 @@ function SetoranPage() {
                   <li key={d.id} className="flex items-center justify-between gap-4 rounded-card bg-card px-5 py-4">
                     <div className="min-w-0">
                       <p className="text-body font-bold text-fg">{tanggalPendek(d.deposited_on)}</p>
-                      <p className="truncate text-body-sm text-fg-muted">{d.received_by_name ? `Diterima kasir · ${d.received_by_name}` : `${d.payment_count} pembayaran`}</p>
+                      <p className="truncate text-body-sm text-fg-muted">{d.received_by_name ? `${d.status === "ditolak" ? "Ditolak" : "Diterima"} kasir · ${d.received_by_name}` : `${d.payment_count} pembayaran`}</p>
+                      {d.returned_amount > 0 && <p className="text-small text-warn-text">{rupiah(d.returned_amount)} dikembalikan kepada Anda</p>}
+                      {d.notes && <p className="text-small text-fg-muted">Catatan: {d.notes}</p>}
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-body font-bold text-fg">{rupiah(d.amount)}</p>
-                      <p className={d.status === "selisih" ? "text-small font-bold text-warn-text" : "text-small font-bold text-fg-muted"}>
+                      <p className={d.status === "selisih" || d.status === "ditolak" ? "text-small font-bold text-warn-text" : "text-small font-bold text-fg-muted"}>
                         {d.status === "cocok" && <Check size={12} strokeWidth={2} className="mr-1 inline" />}{STATUS[d.status]}
                       </p>
                     </div>

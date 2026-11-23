@@ -125,7 +125,7 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | Metode | Endpoint | Fungsi |
 |---|---|---|
 | GET | `/dashboard` | KPI, alur penagihan hari ini, pembayaran menunggu, kinerja petugas |
-| GET, POST | `/pinjaman` | daftar (filter `collectibility`, `q`, `page`) · buat pinjaman + jadwal angsuran (> Rp 20 jt → `pengajuan`) |
+| GET, POST | `/pinjaman` | daftar (filter `collectibility`, `q`, `page`) · buat pinjaman + jadwal angsuran (> `loan_approval_limit`, default Rp 20 jt → `pengajuan`). Body memakai `loan_amount` (jumlah pinjaman); tidak boleh melebihi plafon (`principal_amount`, pengaturan `loan_ceiling`) kecuali Owner bila `loan_ceiling_owner_override` aktif |
 | GET | `/pinjaman/:id` | detail + jadwal angsuran |
 | GET, POST | `/anggota` | daftar (filter `region_id`, `q`, `page`) + statistik · anggota baru (wajib `national_id`; `biodata` dari KTP) |
 | GET, PATCH, DELETE | `/anggota/{id}` | detail (biodata, jejak audit, pinjaman) · ubah · **soft delete** (ditolak 409 bila masih punya pinjaman pengajuan/aktif) |
@@ -134,7 +134,7 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | GET | `/jatuh-tempo` | angsuran jatuh tempo s.d. `date`, ringkasan mingguan (`status=all|unpaid|overdue`) |
 | GET | `/pembayaran` | antrean (`status=menunggu|terverifikasi|ditolak`) |
 | GET | `/pembayaran/:id` | detail bukti + sisa pinjaman sebelum/sesudah |
-| POST | `/pembayaran/:id/verifikasi` | `{ action: "verify" \| "reject", notes }` → update saldo / tagih ulang |
+| POST | `/pembayaran/:id/verifikasi` | `{ action: "verify" \| "reject", notes }` → update saldo / tagih ulang. `verify` untuk tunai petugas baru boleh setelah setorannya diterima (422 bila belum); `verify_block` di GET menunjukkan alasannya |
 | GET, POST | `/penugasan` | tagihan belum ditugaskan + beban petugas (`tanggal`, default besok) · tugaskan |
 | POST | `/penugasan/otomatis` | bagi otomatis per wilayah |
 | GET | `/pengingat` | saluran, aturan, template, log hari ini |
@@ -151,7 +151,7 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | GET, POST | `/wilayah` | **Master Data** — daftar wilayah · tambah |
 | GET, PATCH, DELETE | `/wilayah/{id}` | detail · ubah · soft delete (ditolak bila masih dipakai anggota/pengguna) |
 | GET, PATCH | `/pengaturan` | **Sistem › Pengaturan** — daftar pengaturan (tabel `settings`, key/value dinamis) · ubah beberapa sekaligus `{ values: { key: nilai } }` |
-| GET | `/pinjaman/pengaturan` | perlakuan biaya admin yang berlaku (`admin_fee_mode`: `potong`/`tambah`) untuk form pinjaman |
+| GET | `/pinjaman/pengaturan` | perlakuan biaya admin yang berlaku (`admin_fee_mode`: `potong`/`tambah`), plafon (`ceiling`), dan `can_exceed` (pengguna ini boleh melebihi plafon) untuk form pinjaman |
 | GET, POST | `/tenor` | **Master Data** — pilihan tenor **bulanan/harian** (`unit`), `duration`, dan jasa `interest_rate_percent` (% flat per bulan/hari) (`?active=1` = hanya aktif) · tambah. `POST /pinjaman` memakai `tenor_id` dari tabel ini |
 | GET, PATCH, DELETE | `/tenor/{id}` | detail · ubah · soft delete |
 | GET, POST | `/pengguna` | **Sistem** — daftar (`q`, `role`, `status`, `page`) · tambah (password awal bcrypt) |
@@ -160,6 +160,8 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | GET, PATCH, DELETE | `/role/{id}` | detail + hak akses · ubah · soft delete (role bawaan / yang dipakai ditolak) |
 | PUT | `/role/{id}/permissions` | ganti matriks hak akses role (role `owner` = superadmin dikunci) |
 | GET | `/log-aktivitas`, `/log-aktivitas/{id}` | **Sistem** — log login & perubahan data (hanya baca; filter `q`, `module`, `action`, `from`, `to`) |
+| GET | `/setoran`, `/setoran/{id}` | setoran kas petugas (`?status=menunggu\|cocok\|selisih\|ditolak`, `q`); modul `deposit_receipts` |
+| POST | `/setoran/{id}` | Admin terima (`received_amount`, `notes`) atau tolak setoran. Selisih / setoran ditolak kembali ke uang tunai di tangan petugas |
 | GET | `/persetujuan`, `/persetujuan/{id}` | pengajuan pinjaman > Rp 20 jt yang menunggu Owner |
 | POST | `/persetujuan/{id}` | `{ action: "approve" \| "reject", notes }` — keputusan Owner (jadwal angsuran dibuat saat disetujui) |
 

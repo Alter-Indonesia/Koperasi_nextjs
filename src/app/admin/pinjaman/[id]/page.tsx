@@ -12,7 +12,7 @@ import { isoHariIni, rupiah, tanggal, tenorLabel, type TenorUnit } from "@/lib/f
 import { withFreshState } from "@/components/layout/FreshState";
 
 type Detail = {
-  id: number; loan_number: string; member_id: number; member_name: string; member_number: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; admin_fee: number; admin_fee_mode: AdminFeeMode; installment_amount: number;
+  id: number; loan_number: string; member_id: number; member_name: string; member_number: string; region_name: string; principal_amount: number; loan_amount: number; tenor_duration: number; tenor_unit: TenorUnit; admin_fee: number; admin_fee_mode: AdminFeeMode; installment_amount: number;
   interest_rate_percent: number; remaining_balance: number; arrears_amount: number; status: "pengajuan" | "aktif" | "lunas" | "ditolak"; collectibility: Kolektibilitas;
   purpose: string | null; collateral: string | null; disbursed_on: string | null;
   installments: { id: number; sequence: number; due_date: string; total_amount: number; status: "belum" | "menunggu_verifikasi" | "lunas"; paid_at: string | null }[];
@@ -37,13 +37,13 @@ function DetailPinjamanPage({ params }: PageProps<"/admin/pinjaman/[id]">) {
       {d && (
         <div className="flex flex-col gap-6">
           {d.status === "pengajuan" && (
-            <div className="rounded-card border border-warn bg-card px-5 py-4 text-body-sm text-warn-text">Pinjaman ini berstatus pengajuan (di atas Rp 20 jt) dan menunggu persetujuan Owner. Jadwal angsuran dibuat setelah disetujui.</div>
+            <div className="rounded-card border border-warn bg-card px-5 py-4 text-body-sm text-warn-text">Pinjaman ini berstatus pengajuan (melebihi batas persetujuan) dan menunggu persetujuan Owner. Jadwal angsuran dibuat setelah disetujui.</div>
           )}
           <Card title="Ringkasan">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
               {([
-                ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / ${d.tenor_unit === "hari" ? "hari" : "bln"} flat`],
-                ["Biaya admin", `${rupiah(d.admin_fee)} (${d.admin_fee_mode === "tambah" ? "penambah" : "pengurang"})`], ["Pokok ditagih", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).financed)], ["Dana diterima", rupiah(loanAmounts(d.principal_amount, d.admin_fee, d.admin_fee_mode).received)],
+                ["Pinjaman", rupiah(d.loan_amount)], ["Plafon", rupiah(d.principal_amount)], ["Tenor", tenorLabel(d.tenor_duration, d.tenor_unit)], [`Angsuran / ${d.tenor_unit}`, rupiah(d.installment_amount)], ["Jasa", `${d.interest_rate_percent}% / ${d.tenor_unit === "hari" ? "hari" : "bln"} flat`],
+                ["Biaya admin", `${rupiah(d.admin_fee)} (${d.admin_fee_mode === "tambah" ? "penambah" : "pengurang"})`], ["Pokok ditagih", rupiah(loanAmounts(d.loan_amount, d.admin_fee, d.admin_fee_mode).financed)], ["Dana diterima", rupiah(loanAmounts(d.loan_amount, d.admin_fee, d.admin_fee_mode).received)],
                 ["Sisa pinjaman", rupiah(d.remaining_balance)], ["Tunggakan", rupiah(d.arrears_amount)], ["Tanggal cair", d.disbursed_on ? tanggal(d.disbursed_on) : "—"], ["Status", d.status],
                 ["Tujuan", d.purpose ?? "—"], ["Jaminan", d.collateral ?? "—"],
               ] as const).map(([l, v]) => (

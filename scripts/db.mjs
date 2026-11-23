@@ -128,8 +128,8 @@ async function seed(c) {
     const paid = Math.min(tenor - 1, Math.max(1, Math.floor(rnd() * (tenor - 1)) + 1));
     const dueCurrent = addDays(today, dueOffset);
     const cair = addMonths(dueCurrent, -(paid + 1));
-    const pjId = await ins(`INSERT INTO loans (loan_number, member_id, principal_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, disbursed_on, status, submitted_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'aktif',$9) RETURNING id`, [`PJ-${String(cair.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, jasa, total, pick(['Modal usaha', 'Renovasi rumah', 'Biaya sekolah', 'Modal warung', 'Pembelian motor usaha']), iso(cair), adminId]);
+    const pjId = await ins(`INSERT INTO loans (loan_number, member_id, principal_amount, loan_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, disbursed_on, status, submitted_by)
+      VALUES ($1,$2,20000000,$3,$4,$5,$6,$7,$8,'aktif',$9) RETURNING id`, [`PJ-${String(cair.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, jasa, total, pick(['Modal usaha', 'Renovasi rumah', 'Biaya sekolah', 'Modal warung', 'Pembelian motor usaha']), iso(cair), adminId]);
     const petugasId = pet[w];
     for (let k = 1; k <= tenor; k++) {
       const due = addMonths(cair, k);
@@ -179,7 +179,7 @@ async function seed(c) {
   for (const [nama, w, plafon, tenor, tujuan, jaminan] of [['Rudi Setiawan', 0, 25_000_000, 24, 'Modal usaha warung', 'BPKB motor (2019)'], ['Euis Maryani', 1, 40_000_000, 36, 'Renovasi rumah', 'Sertifikat rumah'], ['Taufik Hidayat', 2, 22_000_000, 18, 'Pembelian motor usaha', 'BPKB motor (2021)']]) {
     const agId = await ins(`INSERT INTO members (member_number, name, phone, address, region_id, joined_on, principal_savings, mandatory_savings) VALUES ($1,$2,'0812-5550-0101',$3,$4,$5,100000,1500000) RETURNING id`, [`AG-0${noAg += 7}`, nama, `Jl. Contoh, Wil. ${WILAYAH[w]}`, wil[w], iso(addMonths(today, -40))]);
     const ang = Math.round(plafon / tenor) + Math.round(plafon * 0.015);
-    await c.query(`INSERT INTO loans (loan_number, member_id, principal_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, collateral, status, submitted_by) VALUES ($1,$2,$3,$4,1.5,$5,$6,$7,'pengajuan',$8)`, [`PJ-${String(today.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, ang, tujuan, jaminan, adminId]);
+    await c.query(`INSERT INTO loans (loan_number, member_id, principal_amount, loan_amount, tenor_duration, interest_rate_percent, installment_amount, purpose, collateral, status, submitted_by) VALUES ($1,$2,20000000,$3,$4,1.5,$5,$6,$7,'pengajuan',$8)`, [`PJ-${String(today.getFullYear()).slice(2)}-0${noPj += 13}`, agId, plafon, tenor, ang, tujuan, jaminan, adminId]);
   }
   const n = (await c.query('SELECT (SELECT count(*) FROM members) a, (SELECT count(*) FROM loans) p, (SELECT count(*) FROM installments) s, (SELECT count(*) FROM payments WHERE status = $1) m', ['menunggu'])).rows[0];
   console.log(`data contoh: ${n.a} anggota, ${n.p} pinjaman, ${n.s} angsuran, ${n.m} pembayaran menunggu verifikasi`);

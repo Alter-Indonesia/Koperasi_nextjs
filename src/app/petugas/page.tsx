@@ -10,7 +10,7 @@ import { ChipGroup } from "@/components/ui/Chip";
 import { ErrorBox, Modal, Skeleton, Toast } from "@/components/ui/Feedback";
 import { Field, Input, Textarea } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
-import { api, ApiError, useApi } from "@/lib/api";
+import { api, ApiError, qs, useApi } from "@/lib/api";
 import { rupiah, rupiahRingkas, tambahHari, tanggalPanjang, tanggalPendek } from "@/lib/format";
 import { useSession } from "@/lib/session";
 
@@ -19,7 +19,7 @@ type Task = {
   region_name: string; loan_number: string; tenor_duration: number; days_overdue: number; promised_on: string | null; promise_reason: string | null;
 };
 type Meta = {
-  date: string; total: number; done: number; postponed: number; amount_total: number; amount_done: number;
+  date: string; today: string; upcoming: { date: string; count: number }[]; total: number; done: number; postponed: number; amount_total: number; amount_done: number;
   methods: { tunai: boolean; transfer: boolean }; bank: { name: string; number: string; holder: string };
 };
 type Mode = "tunai" | "transfer" | "tunda";
@@ -33,19 +33,30 @@ const waNumber = (hp: string) => {
 
 function TugasPage() {
   const { can } = useSession();
-  const { data, meta, error, loading, reload } = useApi<Task[], Meta>("/api/v1/petugas/tugas");
+  const [tgl, setTgl] = useState<string | null>(null); // null = hari ini; selain itu salah satu tanggal dari meta.upcoming
+  const { data, meta, error, loading, reload } = useApi<Task[], Meta>(`/api/v1/petugas/tugas${qs({ date: tgl })}`);
   const [menuId, setMenuId] = useState<number | null>(null);
   const [bayar, setBayar] = useState<Task | null>(null);
   const [toast, setToast] = useState<{ m: string; t: "ok" | "warn" } | null>(null);
-  const bisaBayar = can("my_tasks", "create");
+  const hariIni = !tgl || (!!meta && meta.date === meta.today); // penugasan hari ke depan hanya untuk dilihat; bayar/tunda hanya hari ini
+  const bisaBayar = can("my_tasks", "create") && hariIni;
 
   return (
     <>
-      <PageHeader title="Tugas Hari Ini" subtitle={meta ? tanggalPanjang(meta.date) : "Daftar tagihan lapangan yang ditugaskan kepada Anda"} />
+      <PageHeader title={hariIni ? "Tugas Hari Ini" : "Tugas Mendatang"} subtitle={meta ? tanggalPanjang(meta.date) : "Daftar tagihan lapangan yang ditugaskan kepada Anda"} />
       {error && <ErrorBox message={error} onRetry={reload} />}
+      {(meta?.upcoming.length ?? 0) > 0 && (
+        <div className="mb-6 overflow-x-auto">
+          <ChipGroup<string | null>
+            value={tgl}
+            onChange={(v) => { setTgl(v); setMenuId(null); }}
+            options={[{ value: null, label: "Hari Ini" }, ...meta!.upcoming.map((u) => ({ value: u.date as string | null, label: `${tanggalPendek(u.date)} · ${u.count}` }))]}
+          />
+        </div>
+      )}
       <div className="mb-6 grid grid-cols-[repeat(2,minmax(0,1fr))] gap-4 sm:grid-cols-[repeat(3,minmax(0,1fr))] lg:gap-6">
         <div className="col-span-2 min-w-0 sm:col-span-1 [&>*]:h-full">
-          <StatCard inverse label="Kunjungan hari ini" value={meta ? meta.total : "…"} note={meta ? `${meta.done} selesai · ${meta.total - meta.done - meta.postponed} tersisa${meta.postponed ? ` · ${meta.postponed} ditunda` : ""}` : undefined} />
+          <StatCard inverse label={hariIni ? "Kunjungan hari ini" : "Kunjungan"} value={meta ? meta.total : "…"} note={meta ? `${meta.done} selesai · ${meta.total - meta.done - meta.postponed} tersisa${meta.postponed ? ` · ${meta.postponed} ditunda` : ""}` : undefined} />
         </div>
         <StatCard label="Target tagihan" value={meta ? rupiahRingkas(meta.amount_total) : "…"} note="Total angsuran" />
         <StatCard label="Sudah tertagih" value={meta ? rupiahRingkas(meta.amount_done) : "…"} note="Menunggu verifikasi / lunas" />
@@ -54,7 +65,7 @@ function TugasPage() {
         {loading && !data ? (
           <Skeleton className="h-40" />
         ) : !data?.length ? (
-          <p className="py-8 text-center text-body-sm text-fg-muted">Belum ada tagihan yang ditugaskan untuk hari ini</p>
+          <p className="py-8 text-center text-body-sm text-fg-muted">{hariIni ? "Belum ada tagihan yang ditugaskan untuk hari ini" : "Belum ada tagihan yang ditugaskan untuk tanggal ini"}</p>
         ) : (
           <ul>
             {data.map((t, i) => {
@@ -72,7 +83,7 @@ function TugasPage() {
                   {selesai ? <Badge tone="sudah-bayar">Selesai</Badge>
                     : ditunda ? <Badge tone="warn-outline">Janji {tanggalPendek(t.promised_on!)}</Badge>
                     : t.days_overdue > 0 ? <Badge tone="telat">Telat {t.days_overdue} hari</Badge>
-                    : <Badge tone="belum-bayar">Hari ini</Badge>}
+                    : <Badge tone="belum-bayar">{hariIni ? "Hari ini" : "Terjadwal"}</Badge>}
                   {!selesai && (
                     <div className="relative shrink-0">
                       <button

@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, Bell, CalendarClock, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, Database, FileBarChart, History, LayoutDashboard, Map, MapPin,
+  BadgeCheck, Bell, CalendarClock, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, Database, FileBarChart, HandCoins, History, LayoutDashboard, Map, MapPin,
   ScrollText, ShieldCheck, SlidersHorizontal, UserCog, UserRound, Users, Wallet, type LucideIcon,
 } from "lucide-react";
 import type { Action, Area, Module } from "@/lib/permissions";
@@ -37,6 +37,7 @@ const ADMIN_NAV: NavGroupDef[] = [
         { href: "/admin/pinjaman", label: "Data Pinjaman", icon: Wallet, module: "loans" },
         { href: "/admin/jatuh-tempo", label: "Jatuh Tempo", icon: CalendarClock, module: "due_dates" },
         { href: "/admin/verifikasi", label: "Verifikasi Bayar", icon: BadgeCheck, module: "payments", badge: "payments" },
+        { href: "/admin/setoran", label: "Setoran Petugas", icon: HandCoins, module: "deposit_receipts" },
         { href: "/admin/penugasan", label: "Penugasan Petugas", icon: MapPin, module: "assignments" },
         { href: "/admin/pengingat", label: "Pengingat Tagihan", icon: Bell, module: "reminders" },
         { href: "/admin/laporan", label: "Laporan Penagihan", icon: FileBarChart, module: "reports" },

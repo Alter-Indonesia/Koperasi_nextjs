@@ -5,9 +5,9 @@ import { Avatar, avatarTone } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorBox, Skeleton, Toast } from "@/components/ui/Feedback";
-import { Checkbox, Progress, Select } from "@/components/ui/Form";
+import { Checkbox, Input, Progress, Select } from "@/components/ui/Form";
 import { cx } from "@/components/ui/cx";
-import { api, ApiError, useApi } from "@/lib/api";
+import { api, ApiError, qs, useApi } from "@/lib/api";
 import { rupiah, tanggalPanjang, tanggalPendek } from "@/lib/format";
 import { withFreshState } from "@/components/layout/FreshState";
 import { useSession } from "@/lib/session";
@@ -18,7 +18,8 @@ type Data = { date: string; unassigned: Due[]; collectors: Collector[] };
 
 function PenugasanPage() {
   const { can } = useSession();
-  const { data, error, loading, reload } = useApi<Data>("/api/v1/penugasan");
+  const [tgl, setTgl] = useState(""); // kosong = default server (besok)
+  const { data, error, loading, reload } = useApi<Data>(`/api/v1/penugasan${qs({ date: tgl })}`);
   const [pilih, setPilih] = useState<number[]>([]);
   const [ke, setKe] = useState<string>("");
   const [busy, setBusy] = useState(false);
@@ -61,7 +62,15 @@ function PenugasanPage() {
       <PageHeader
         title="Penugasan Petugas"
         subtitle={data ? `Bagi tagihan lapangan untuk ${tanggalPanjang(data.date)}` : "Memuat…"}
-        actions={can("assignments", "create") && <Button variant="accent" size="lg" disabled={busy || !data?.unassigned.length} onClick={otomatis}>Bagi Otomatis per Wilayah</Button>}
+        actions={
+          <>
+            <label className="flex items-center gap-2 text-body-sm font-bold text-fg">
+              Tanggal
+              <Input ukuran="compact" type="date" aria-label="Tanggal penugasan" className="w-[170px]" value={tgl || data?.date || ""} onChange={(e) => { setTgl(e.target.value); setPilih([]); }} />
+            </label>
+            {can("assignments", "create") && <Button variant="accent" size="lg" disabled={busy || !data?.unassigned.length} onClick={otomatis}>Bagi Otomatis per Wilayah</Button>}
+          </>
+        }
       />
       {error && <ErrorBox message={error} onRetry={reload} />}
       {loading && !data && <Skeleton className="h-[800px]" />}

@@ -1,5 +1,7 @@
 import "server-only";
 import type { PoolClient } from "pg";
+import { SUPERADMIN_ROLE } from "@/lib/permissions";
+import { getSetting } from "@/lib/settings";
 
 export const MAX_COLLECTOR_LOAD = 30;
 
@@ -13,6 +15,22 @@ export const TAGIHAN_TERBUKA = `
   JOIN regions r ON r.id = m.region_id
   WHERE i.status = 'belum' AND i.due_date <= $1::date
   ORDER BY i.loan_id, i.due_date`;
+
+/**
+ * Ekspresi SQL (butuh alias p = payments dan d = cash_deposits yang di-LEFT JOIN lewat p.deposit_id): mengapa pembayaran tunai petugas belum boleh diverifikasi.
+ * null = boleh. Nilai: belum_disetor · setoran_menunggu · setoran_ditolak. Aturan yang sama dipaksa di POST /pembayaran/{id}/verifikasi.
+ */
+export const VERIFY_BLOCK = `CASE WHEN p.status = 'menunggu' AND p.method = 'tunai' AND p.collector_id IS NOT NULL THEN
+    CASE WHEN d.id IS NULL THEN 'belum_disetor' WHEN d.status = 'menunggu' THEN 'setoran_menunggu' WHEN d.status = 'ditolak' THEN 'setoran_ditolak' END
+  END`;
+
+/** Plafon pinjaman + batas persetujuan Owner (Sistem › Pengaturan) + apakah pengguna ini boleh melebihi plafon (Owner/superadmin, bila pengaturan mengizinkan). */
+export async function loanCeilingFor(roleCode: string) {
+  const [ceiling, ownerOverride, approvalLimit] = await Promise.all([
+    getSetting<number>("loan_ceiling", 20_000_000), getSetting<boolean>("loan_ceiling_owner_override", true), getSetting<number>("loan_approval_limit", 20_000_000),
+  ]);
+  return { ceiling: Number(ceiling), can_exceed: roleCode === SUPERADMIN_ROLE && ownerOverride, approval_limit: Number(approvalLimit) };
+}
 
 export type LoanTerms = { disbursed_on: string; principal_amount: number; interest_rate_percent: number; duration: number; unit: "bulan" | "hari" };
 

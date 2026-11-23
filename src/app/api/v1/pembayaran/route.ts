@@ -1,5 +1,6 @@
 import { q, one } from "@/lib/db";
 import { handle, intParam, ok } from "@/lib/http";
+import { VERIFY_BLOCK } from "@/lib/queries";
 
 // GET /api/v1/pembayaran?status=menunggu|terverifikasi|ditolak&limit=
 export const GET = handle(async (req: Request) => {
@@ -8,8 +9,10 @@ export const GET = handle(async (req: Request) => {
   const limit = intParam(sp.get("limit"), 50, 1, 200);
   const [rows, counts] = await Promise.all([
     q(`SELECT p.id, p.amount + p.penalty_amount AS amount, p.method, p.method_note, p.paid_at, p.status,
-              m.name AS member_name, l.loan_number, i.sequence AS installment_sequence, l.tenor_duration, l.tenor_unit, c.name AS collector_name
+              m.name AS member_name, l.loan_number, i.sequence AS installment_sequence, l.tenor_duration, l.tenor_unit, c.name AS collector_name,
+              ${VERIFY_BLOCK} AS verify_block
        FROM payments p
+       LEFT JOIN cash_deposits d ON d.id = p.deposit_id
        JOIN installments i ON i.id = p.installment_id
        JOIN loans l ON l.id = i.loan_id
        JOIN members m ON m.id = l.member_id

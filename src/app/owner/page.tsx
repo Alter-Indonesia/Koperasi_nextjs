@@ -18,7 +18,7 @@ type Dashboard = {
   arrears: { amount: number; members: number; npl: number | null };
   collectors: { id: number; name: string; region_name: string; tasks: number; completed: number; collected: number }[];
 };
-type Approval = { id: number; loan_number: string; member_name: string; region_name: string; principal_amount: number; tenor_duration: number; tenor_unit: TenorUnit; purpose: string | null };
+type Approval = { id: number; loan_number: string; member_name: string; region_name: string; loan_amount: number; tenor_duration: number; tenor_unit: TenorUnit; purpose: string | null };
 type ApprovalMeta = { summary: { pending: number; pending_amount: number } };
 
 function OwnerDashboard() {
@@ -49,7 +49,7 @@ function OwnerDashboard() {
                 rowHeight="h-[62px]"
                 columns={[
                   { key: "a", header: "Anggota", render: (r, i) => <CellStack avatar={<Avatar name={r.member_name} size={32} tone={avatarTone(i)} />} title={r.member_name} sub={`${r.loan_number} · ${r.region_name}`} /> },
-                  { key: "p", header: "Plafon", render: (r) => <b>{rupiah(r.principal_amount)}</b> },
+                  { key: "p", header: "Pinjaman", render: (r) => <b>{rupiah(r.loan_amount)}</b> },
                   { key: "t", header: "Tenor", render: (r) => tenorLabel(r.tenor_duration, r.tenor_unit, true) },
                   { key: "x", header: "", render: (r) => <Link href={`/owner/persetujuan/${r.id}`} className="font-bold text-warn-text hover:underline">Tinjau →</Link> },
                 ]}

@@ -21,7 +21,7 @@ export const GET = handle(async (_req: Request, ctx: Route) => {
   );
   if (!member) throw new HttpError(404, "Anggota tidak ditemukan");
   const loans = await q(
-    `SELECT id, loan_number, principal_amount, tenor_duration, tenor_unit, installment_amount, status, remaining_balance, arrears_amount, collectibility
+    `SELECT id, loan_number, principal_amount, loan_amount, tenor_duration, tenor_unit, installment_amount, status, remaining_balance, arrears_amount, collectibility
      FROM v_loans WHERE member_id = $1 ORDER BY id DESC`,
     [id],
   );

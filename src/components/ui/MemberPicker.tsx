@@ -28,7 +28,7 @@ export function MemberPicker({ value, onChange, invalid }: { value: MemberOption
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-30" onClick={(e) => { e.preventDefault(); setOpen(false); }} /> {/* preventDefault: picker berada di dalam <label> Field, tanpa ini klik diteruskan ke tombol dan membuka ulang */}
           <div className="absolute top-full right-0 left-0 z-40 mt-1 flex flex-col gap-2 rounded-ctl border border-line bg-card p-2 shadow-lg">
             <label className="flex h-10 items-center gap-2.5 rounded-ctl border border-line px-3">
               <Search size={16} strokeWidth={1.5} className="shrink-0 text-fg-muted" />

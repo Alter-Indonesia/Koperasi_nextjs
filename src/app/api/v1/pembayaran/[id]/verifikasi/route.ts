@@ -15,9 +15,16 @@ export const POST = handle(async (req: Request, ctx: RouteContext<"/api/v1/pemba
   const d = await body(req, Verify);
   if (d.action === "reject" && !d.notes) throw new HttpError(422, "Alasan penolakan wajib diisi");
   const res = await tx(async (c) => {
-    const p = (await c.query("SELECT id, installment_id, status FROM payments WHERE id = $1 FOR UPDATE", [id])).rows[0];
+    const p = (await c.query("SELECT id, installment_id, status, method, collector_id, deposit_id FROM payments WHERE id = $1 FOR UPDATE", [id])).rows[0];
     if (!p) throw new HttpError(404, "Pembayaran tidak ditemukan");
     if (p.status !== "menunggu") throw new HttpError(409, "Pembayaran ini sudah diproses");
+    // tunai yang dipegang petugas baru boleh diverifikasi setelah uangnya disetor dan setorannya diterima Admin (Setoran Petugas)
+    if (d.action === "verify" && p.method === "tunai" && p.collector_id) {
+      const dep = p.deposit_id ? (await c.query("SELECT status FROM cash_deposits WHERE id = $1", [p.deposit_id])).rows[0] : null;
+      if (!dep) throw new HttpError(422, "Pembayaran tunai ini belum disetor petugas ke kasir");
+      if (dep.status === "menunggu") throw new HttpError(422, "Setoran petugas untuk pembayaran ini belum diterima. Terima setorannya dulu di menu Setoran Petugas");
+      if (dep.status === "ditolak") throw new HttpError(422, "Setoran petugas untuk pembayaran ini ditolak. Petugas harus menyetor ulang");
+    }
     await c.query(
       `UPDATE payments SET status = $2, verification_notes = $3, verified_by = $4, verified_at = now(), updated_by = $4 WHERE id = $1`,
       [id, d.action === "verify" ? "terverifikasi" : "ditolak", d.notes ?? null, currentUser().id],
