@@ -147,6 +147,11 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | POST | `/petugas/tugas/{id}/bayar` | **Petugas** — catat pembayaran angsuran (`method`: tunai/transfer) → status `menunggu`, diverifikasi admin |
 | POST | `/petugas/tugas/{id}/tunda` | **Petugas** — tunda tagihan ke `promised_on` (maks. 30 hari) + `reason`; ditugaskan ulang pada tanggal itu |
 | GET, POST | `/petugas/setoran` | **Petugas** — uang tunai di tangan, rincian hari ini, riwayat · setor semua tunai ke kasir (modul `my_deposits`) |
+| GET | `/petugas/anggota` | **Petugas** — daftar anggota yang dipegang (`?q&page&limit`; modul `my_tasks`) |
+| POST | `/petugas/anggota` | **Petugas** — tambah anggota (otomatis dipegang) + `loan` opsional: langsung `aktif`, di atas `loan_approval_limit` → `pengajuan` untuk Owner |
+| GET | `/petugas/anggota/opsi` | **Petugas** — wilayah, tenor aktif, mode biaya admin, plafon & batas persetujuan untuk form |
+| POST | `/petugas/anggota/baca-ktp` | **Petugas** — baca foto KTP (OCR), tidak menyimpan |
+| GET/POST | `/petugas/anggota/{id}/ktp` | **Petugas** — ambil / unggah foto KTP anggota yang dipegang |
 | GET | `/petugas/profil` | **Petugas** — biodata + capaian bulan ini terhadap target + daftar anggota di wilayah tugasnya (modul `my_tasks`) |
 | GET | `/anggota/saya` | **Anggota** — profil, simpanan, ringkasan pinjaman, angsuran berikutnya (hanya data milik sendiri; modul `my_loans`) |
 | GET | `/anggota/saya/pinjaman` | **Anggota** — pinjaman saya + jadwal angsuran + riwayat bayar (modul `my_loans`) |
@@ -156,6 +161,8 @@ Dokumentasi interaktif ada di **http://localhost:3100/docs** (spec OpenAPI 3.1 d
 | POST | `/pelunasan/{id}` | `{ action: approve\|reject\|verify, notes? }` — setujui · tolak (alasan wajib) · verifikasi: semua angsuran tersisa lunas + pinjaman lunas (modul `payments`) |
 | GET | `/pelunasan/{id}/bukti` | foto bukti transfer pelunasan (wajib login) |
 | GET, POST | `/petugas/pelunasan` | **Petugas** — daftar pelunasan di wilayahnya (disetujui · pinjaman aktif · kwitansi saya) · terima pelunasan tunai langsung `{ loan_id }` (modul `my_tasks`) |
+| GET | `/petugas/pembayaran/{id}` | **Petugas** — data kwitansi ber-QR pembayaran tunai angsuran (`receipt_code` BYR-…; kode dicari Admin di Verifikasi Bayar; QR = tautan publik `/bukti/{public_id}`) |
+| GET | `/bukti/{uuid}` | **Publik (tanpa login)** — bukti pembayaran/pelunasan tunai lewat UUID acak (`public_id`); tujuan QR kwitansi, halaman `/bukti/{uuid}` |
 | GET | `/petugas/pelunasan/{id}` | **Petugas** — data kwitansi ber-QR (`receipt_code`) untuk dicetak |
 | POST | `/petugas/pelunasan/{id}/terima` | **Petugas** — terima uang tunai untuk pengajuan anggota yang sudah disetujui |
 | POST | `/anggota/saya/password` | **Anggota** — ganti password sendiri; semua sesi diputus (modul `my_loans`) |

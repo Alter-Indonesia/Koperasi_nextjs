@@ -67,10 +67,17 @@ function validate(f: FormState): Partial<Record<Field_, string>> {
  * `children` tampil di kolom kanan di bawah kartu foto (mis. riwayat & pinjaman di halaman detail).
  */
 export function FormAnggota({
-  mode, regions, initial, memberId, prefill, onSubmit, onCancel, children,
+  mode, regions, initial, memberId, prefill, onSubmit, onCancel, children, extra, beforeSubmit, ktpReadUrl = "/api/v1/anggota/baca-ktp", saveLabel, ktpFirstOnMobile,
 }: {
   mode: Mode; regions: Region[]; initial?: Initial; memberId?: number; prefill?: Prefill;
   onSubmit?: (p: Payload, photo: File | null) => Promise<void>; onCancel?: () => void; children?: React.ReactNode;
+  /** Card tambahan di bawah Biodata KTP (mis. pengajuan pinjaman oleh petugas). */
+  extra?: React.ReactNode;
+  /** Dipanggil setelah isian anggota valid, sebelum menyimpan; kembalikan false untuk menahan simpan (isian `extra` tidak valid). */
+  beforeSubmit?: () => boolean;
+  ktpReadUrl?: string; saveLabel?: string;
+  /** Layar sempit (satu kolom): kartu Foto KTP tampil paling atas. */
+  ktpFirstOnMobile?: boolean;
 }) {
   const readOnly = mode === "lihat";
   const [f, setF] = useState<FormState>(() => ({ ...fromInitial(initial), ...(prefill ? ktpToForm(prefill.biodata, prefill.national_id) : {}) }));
@@ -101,7 +108,7 @@ export function FormAnggota({
     setPreview(URL.createObjectURL(file));
     setReading(true);
     try {
-      const r = await api.upload<{ national_id: string | null; biodata: Partial<Record<BioKey, string>> }>("/api/v1/anggota/baca-ktp", "foto", file);
+      const r = await api.upload<{ national_id: string | null; biodata: Partial<Record<BioKey, string>> }>(ktpReadUrl, "foto", file);
       const b = r.data.biodata;
       setBio({ ...EMPTY_BIO, ...b });
       setF((x) => ({ ...x, ...ktpToForm(b, r.data.national_id) }));
@@ -119,7 +126,8 @@ export function FormAnggota({
     setErr(null);
     const e = validate(f);
     setErrors(e);
-    if (Object.keys(e).length || !onSubmit) return;
+    const extraOk = beforeSubmit ? beforeSubmit() : true; // jalankan selalu agar kolom `extra` ikut menampilkan pesan
+    if (Object.keys(e).length || !extraOk || !onSubmit) return;
     setSaving(true);
     try {
       const biodata = Object.fromEntries(Object.entries(bio).filter(([, v]) => v.trim())) as Payload["biodata"];
@@ -197,14 +205,16 @@ export function FormAnggota({
           </div>
         </Card>
 
+        {extra}
+
         {!readOnly && (
-          <div className="flex items-start justify-between gap-4">
-            <span className="text-small text-fg-subtle"><span className="text-warn-text">*</span> wajib diisi</span>
-            <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <span className="text-small whitespace-nowrap text-fg-subtle"><span className="text-warn-text">*</span> wajib diisi</span>
+            <div className="flex flex-col gap-2 sm:items-end">
               {err && <span className="text-small font-medium text-warn-text">{err}</span>}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 max-sm:[&>button]:flex-1">
                 <Button variant="outline" size="lg" onClick={onCancel} disabled={saving}>Batal</Button>
-                <Button size="lg" onClick={save} disabled={saving || reading}>{saving ? "Menyimpan…" : mode === "baru" ? "Simpan Anggota" : "Simpan Perubahan"}</Button>
+                <Button size="lg" onClick={save} disabled={saving || reading}>{saving ? "Menyimpan…" : saveLabel ?? (mode === "baru" ? "Simpan Anggota" : "Simpan Perubahan")}</Button>
 
               </div>
             </div>
@@ -212,7 +222,7 @@ export function FormAnggota({
         )}
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className={`flex flex-col gap-6${ktpFirstOnMobile ? " max-xl:order-first" : ""}`}>
         <Card title="Foto KTP">
           <div className="flex flex-col gap-3">
             <div

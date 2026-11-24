@@ -22,12 +22,15 @@ export const GET = handle(async (req: Request) => {
     q<{ status: string; total_amount: number; promised_on: string | null }>(
       `SELECT i.id, i.sequence, i.due_date, i.total_amount, i.status, m.name AS member_name, m.address AS member_address, m.phone AS member_phone,
               r.name AS region_name, l.loan_number, l.tenor_duration, GREATEST(0, CURRENT_DATE - i.due_date) AS days_overdue,
-              pr.promised_on, pr.reason AS promise_reason
+              pr.promised_on, pr.reason AS promise_reason, rp.id AS receipt_payment_id
        FROM assignments a
        JOIN installments i ON i.id = a.installment_id
        JOIN loans l ON l.id = i.loan_id AND l.deleted_at IS NULL
        JOIN members m ON m.id = l.member_id AND m.deleted_at IS NULL
        JOIN regions r ON r.id = m.region_id
+       LEFT JOIN LATERAL (
+         SELECT p.id FROM payments p WHERE p.installment_id = i.id AND p.collector_id = $1 AND p.receipt_code IS NOT NULL AND p.status <> 'ditolak' AND p.deleted_at IS NULL ORDER BY p.id DESC LIMIT 1
+       ) rp ON true
        LEFT JOIN LATERAL (
          SELECT p.promised_on, p.reason FROM payment_promises p
          WHERE p.installment_id = i.id AND p.deleted_at IS NULL AND p.promised_on > CURRENT_DATE ORDER BY p.created_at DESC LIMIT 1

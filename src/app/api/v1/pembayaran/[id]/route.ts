@@ -7,7 +7,7 @@ export const GET = handle(async (_req: Request, ctx: RouteContext<"/api/v1/pemba
   const id = idParam((await ctx.params).id);
   const r = await one(
     `SELECT p.id, p.amount, p.penalty_amount, p.method, p.method_note, p.paid_at, p.proof_image, p.location_name, p.lat, p.lng,
-            p.notes, p.status, p.verification_notes, p.verified_at,
+            p.notes, p.status, p.verification_notes, p.verified_at, p.receipt_code,
             i.sequence AS installment_sequence, i.total_amount AS installment_total, i.due_date, i.status AS installment_status,
             l.id AS loan_id, l.loan_number, l.tenor_duration, l.tenor_unit, m.name AS member_name, m.address AS member_address, r.name AS region_name,
             c.name AS collector_name, v.name AS verifier_name, vl.remaining_balance,

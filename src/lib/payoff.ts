@@ -1,8 +1,8 @@
 import "server-only";
-import crypto from "node:crypto";
 import type { PoolClient } from "pg";
 import { q } from "@/lib/db";
 import { HttpError } from "@/lib/errors";
+import { receiptCode } from "@/lib/receipt-code";
 
 /** Status pengajuan yang masih berjalan (satu per pinjaman). */
 export const PAYOFF_ACTIVE = ["menunggu", "disetujui", "menunggu_verifikasi"] as const;
@@ -17,9 +17,6 @@ export async function payoffQuote(loanId: number, c?: PoolClient): Promise<Quote
   const r = c ? (await c.query(QUOTE_SQL, [loanId])).rows[0] : (await q<{ amount: number; count: number }>(QUOTE_SQL, [loanId]))[0];
   return { amount: Number(r.amount), count: Number(r.count) };
 }
-
-/** Kode bukti unik (isi QR kwitansi): PLN-000123-AB12CD */
-export const newReceiptCode = (payoffId: number) => `PLN-${String(payoffId).padStart(6, "0")}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
 /** Pembayaran tunai yang bagian dari pelunasan baru boleh diverifikasi setelah setoran petugasnya diterima Admin (aturan sama dengan VERIFY_BLOCK). */
 export async function assertDepositsAccepted(c: PoolClient, payoffId: number) {
@@ -55,7 +52,7 @@ export async function receivePayoffCash(c: PoolClient, opts: { loanId: number; m
        VALUES ($1, $2, $3, $4, 'tunai', 'petugas', 'menunggu', $5, $5) RETURNING id`, [opts.loanId, opts.memberId, amount, left.length, opts.collectorId],
     )).rows[0].id;
   }
-  const code = newReceiptCode(id!);
+  const code = receiptCode("PLN", id!);
   for (const i of left) {
     await c.query(
       `INSERT INTO payments (installment_id, amount, method, collector_id, notes, status, payoff_id, created_by, updated_by)

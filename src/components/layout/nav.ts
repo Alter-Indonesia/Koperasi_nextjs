@@ -74,7 +74,7 @@ export const NAV: Record<Area, NavGroupDef[]> = {
       label: "MENU PETUGAS",
       items: [
         { href: "/petugas", label: "Tugas", icon: ClipboardList, module: "my_tasks", exact: true },
-        { href: "/petugas/pelunasan", label: "Pelunasan", icon: Receipt, module: "my_tasks" },
+        { href: "/petugas/anggota", label: "Anggota", icon: Users, module: "my_tasks" },
         { href: "/petugas/riwayat", label: "Setoran", icon: History, module: "my_deposits" },
         { href: "/petugas/profil", label: "Profil", icon: UserRound, module: "my_tasks" },
       ],
