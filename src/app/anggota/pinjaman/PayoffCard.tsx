@@ -97,7 +97,7 @@ export function PayoffCard({ loanId, payoff, onChanged }: { loanId: number; payo
       )}
       {r?.status === "menunggu_verifikasi" && r.method === "tunai" && (
         <>
-          <p className="text-body-sm font-bold text-warn-text">Uang tunai diterima petugas{r.collector_name ? ` ${r.collector_name}` : ""} · menunggu setoran & verifikasi Admin</p>
+          <p className="text-body-sm font-bold text-warn-text">Uang tunai diterima petugas{r.collector_name ? ` ${r.collector_name}` : ""}</p>
           {r.receipt_code && <p className="text-body-sm text-fg-muted">Kode bukti: <b className="text-fg">{r.receipt_code}</b></p>}
         </>
       )}
